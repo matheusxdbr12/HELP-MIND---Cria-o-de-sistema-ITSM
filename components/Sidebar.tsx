@@ -1,13 +1,15 @@
 import React from 'react';
+import { useAuth } from '../context/AuthContext';
 
 interface SidebarProps {
-  currentRole: 'CUSTOMER' | 'AGENT';
-  setRole: (role: 'CUSTOMER' | 'AGENT') => void;
   activeView: string;
   setActiveView: (view: string) => void;
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ currentRole, setRole, activeView, setActiveView }) => {
+export const Sidebar: React.FC<SidebarProps> = ({ activeView, setActiveView }) => {
+  const { user, logout } = useAuth();
+  const currentRole = user?.role || 'CUSTOMER';
+
   return (
     <div className="w-64 bg-slate-900 text-white flex flex-col h-screen fixed left-0 top-0 z-10 shadow-xl">
       <div className="p-6 flex items-center space-x-3 border-b border-slate-800">
@@ -16,27 +18,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentRole, setRole, activeVi
       </div>
 
       <div className="flex-1 py-6 px-4 space-y-8">
-        {/* Role Switcher (For Demo Purposes) */}
-        <div>
-          <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 block">
-            Current Persona
-          </label>
-          <div className="flex bg-slate-800 rounded-lg p-1">
-            <button
-              onClick={() => { setRole('CUSTOMER'); setActiveView('portal'); }}
-              className={`flex-1 py-1 text-sm rounded-md transition-colors ${currentRole === 'CUSTOMER' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'}`}
-            >
-              Customer
-            </button>
-            <button
-              onClick={() => { setRole('AGENT'); setActiveView('dashboard'); }}
-              className={`flex-1 py-1 text-sm rounded-md transition-colors ${currentRole === 'AGENT' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'}`}
-            >
-              Agent
-            </button>
-          </div>
-        </div>
-
         {/* Menu Items */}
         <nav className="space-y-2">
           {currentRole === 'CUSTOMER' ? (
@@ -58,6 +39,15 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentRole, setRole, activeVi
             </>
           ) : (
             <>
+              {currentRole === 'SUPER_ADMIN' && (
+                <button
+                    onClick={() => setActiveView('admin-console')}
+                    className={`w-full text-left px-4 py-3 rounded-lg flex items-center space-x-3 transition-colors mb-4 border border-red-900/50 ${activeView === 'admin-console' ? 'bg-red-900/20 text-red-400' : 'text-red-400 hover:bg-red-900/10'}`}
+                >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
+                    <span>Admin Console</span>
+                </button>
+              )}
               <button
                 onClick={() => setActiveView('dashboard')}
                 className={`w-full text-left px-4 py-3 rounded-lg flex items-center space-x-3 transition-colors ${activeView === 'dashboard' ? 'bg-slate-800 text-indigo-400' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}
@@ -85,16 +75,25 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentRole, setRole, activeVi
       </div>
 
       <div className="p-4 bg-slate-950">
-        <div className="flex items-center space-x-3">
-          <img
-            src={currentRole === 'CUSTOMER' ? "https://picsum.photos/id/64/100/100" : "https://picsum.photos/id/1005/100/100"}
-            alt="User"
-            className="w-10 h-10 rounded-full border-2 border-indigo-500"
-          />
-          <div>
-            <p className="text-sm font-medium text-white">{currentRole === 'CUSTOMER' ? 'Alice Customer' : 'Bob Agent'}</p>
-            <p className="text-xs text-slate-400">{currentRole}</p>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-3">
+            <img
+              src={user?.avatar || "https://picsum.photos/id/64/100/100"}
+              alt="User"
+              className="w-10 h-10 rounded-full border-2 border-indigo-500"
+            />
+            <div className="overflow-hidden">
+              <p className="text-sm font-medium text-white truncate w-24">{user?.name}</p>
+              <p className="text-xs text-slate-400">{user?.role}</p>
+            </div>
           </div>
+          <button 
+            onClick={logout}
+            className="text-slate-400 hover:text-white p-2 rounded-full hover:bg-slate-800 transition-colors"
+            title="Sign Out"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
+          </button>
         </div>
       </div>
     </div>

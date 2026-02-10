@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { Asset } from '../types';
-import { getAssetWithDetails, getAssetHierarchy, getTicketsForAsset } from '../services/mockStore';
-import { evaluateAssetHealth } from '../services/geminiService';
+import { Asset, AssetReport } from '../types';
+import { getAssetWithDetails, getAssetHierarchy, getTicketsForAsset, getAssetReports, addAssetReport } from '../services/mockStore';
+import { evaluateAssetHealth, generateAssetDiagnostic } from '../services/geminiService';
 
 interface AssetDetailProps {
   asset: Asset;
@@ -14,15 +14,42 @@ export const AssetDetail: React.FC<AssetDetailProps> = ({ asset: rawAsset, onBac
   const children = getAssetHierarchy(asset.id);
   const linkedTickets = getTicketsForAsset(asset.id);
   
-  const [activeTab, setActiveTab] = useState<'overview' | 'financials' | 'hierarchy'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'financials' | 'hierarchy' | 'reports'>('overview');
   const [aiAssessment, setAiAssessment] = useState<{recommendation: string, score: number, justification: string} | null>(null);
   const [isEvaluating, setIsEvaluating] = useState(false);
+  
+  // Reporting State
+  const [reports, setReports] = useState<AssetReport[]>(getAssetReports(asset.id));
+  const [isGeneratingReport, setIsGeneratingReport] = useState(false);
 
   const handleEvaluate = async () => {
       setIsEvaluating(true);
       const result = await evaluateAssetHealth(rawAsset, asset.modelName || 'Unknown');
       setAiAssessment(result);
       setIsEvaluating(false);
+  };
+
+  const handleGenerateReport = async () => {
+      setIsGeneratingReport(true);
+      // Simulate scanning time
+      await new Promise(r => setTimeout(r, 2000));
+      
+      const partialReport = await generateAssetDiagnostic(rawAsset, asset.modelName || 'Unknown');
+      
+      const newReport: AssetReport = {
+          id: `RPT-${Date.now()}`,
+          assetId: asset.id,
+          generatedAt: Date.now(),
+          generatedBy: 'System Agent',
+          overallHealthScore: partialReport.overallHealthScore || 0,
+          metrics: partialReport.metrics || [],
+          aiRecommendations: partialReport.aiRecommendations || [],
+          rawLogSummary: 'Scan completed successfully. No critical errors in kernel logs.'
+      };
+      
+      addAssetReport(newReport);
+      setReports([newReport, ...reports]);
+      setIsGeneratingReport(false);
   };
 
   const warrantyDays = Math.ceil((asset.warrantyExpiry - Date.now()) / (1000 * 60 * 60 * 24));
@@ -66,7 +93,7 @@ export const AssetDetail: React.FC<AssetDetailProps> = ({ asset: rawAsset, onBac
 
         {/* Tabs */}
         <div className="flex space-x-6 mt-8 border-b border-slate-100">
-            {['overview', 'financials', 'hierarchy'].map((tab) => (
+            {['overview', 'reports', 'financials', 'hierarchy'].map((tab) => (
                 <button
                     key={tab}
                     onClick={() => setActiveTab(tab as any)}
@@ -74,7 +101,7 @@ export const AssetDetail: React.FC<AssetDetailProps> = ({ asset: rawAsset, onBac
                         activeTab === tab ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-slate-500 hover:text-slate-700'
                     }`}
                 >
-                    {tab}
+                    {tab === 'reports' ? 'Health & Diagnostics' : tab}
                 </button>
             ))}
         </div>
@@ -113,6 +140,82 @@ export const AssetDetail: React.FC<AssetDetailProps> = ({ asset: rawAsset, onBac
                               <p className="text-slate-400 text-sm italic">No tickets reported.</p>
                           )}
                       </div>
+                  </div>
+              )}
+
+               {/* Reports Tab */}
+              {activeTab === 'reports' && (
+                  <div className="space-y-6 animate-fade-in">
+                       <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
+                           <div>
+                               <h3 className="font-bold text-slate-800">Diagnostic Hub</h3>
+                               <p className="text-sm text-slate-500">Run automated health checks on this device.</p>
+                           </div>
+                           <button 
+                               onClick={handleGenerateReport}
+                               disabled={isGeneratingReport}
+                               className="px-4 py-2 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-700 disabled:opacity-50 flex items-center"
+                           >
+                               {isGeneratingReport ? (
+                                   <>
+                                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                                        Running Scan...
+                                   </>
+                               ) : (
+                                   <>
+                                    <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                    Run Diagnostic
+                                   </>
+                               )}
+                           </button>
+                       </div>
+
+                       {reports.length > 0 ? reports.map(report => (
+                           <div key={report.id} className="bg-white rounded-xl shadow border border-slate-200 overflow-hidden">
+                               <div className="bg-slate-50 px-6 py-4 border-b border-slate-200 flex justify-between items-center">
+                                   <div>
+                                       <span className="text-xs font-bold uppercase text-slate-500">Report ID: {report.id}</span>
+                                       <div className="text-sm font-medium text-slate-800">{new Date(report.generatedAt).toLocaleString()}</div>
+                                   </div>
+                                   <div className={`px-3 py-1 rounded-full text-sm font-bold ${
+                                       report.overallHealthScore > 80 ? 'bg-green-100 text-green-700' : 
+                                       report.overallHealthScore > 50 ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'
+                                   }`}>
+                                       Health Score: {report.overallHealthScore}/100
+                                   </div>
+                               </div>
+                               <div className="p-6">
+                                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                                       {report.metrics.map((metric, idx) => (
+                                           <div key={idx} className="bg-slate-50 p-3 rounded border border-slate-100">
+                                               <div className="text-xs text-slate-500 uppercase">{metric.name}</div>
+                                               <div className="flex items-center justify-between mt-1">
+                                                   <span className="font-bold text-slate-800">{metric.value}</span>
+                                                   <span className={`w-2 h-2 rounded-full ${
+                                                       metric.status === 'OK' ? 'bg-green-500' : 
+                                                       metric.status === 'WARNING' ? 'bg-yellow-500' : 'bg-red-500'
+                                                   }`}></span>
+                                               </div>
+                                           </div>
+                                       ))}
+                                   </div>
+                                   
+                                   <div className="mb-4">
+                                       <h4 className="text-sm font-bold text-indigo-900 mb-2">AI Recommendations</h4>
+                                       <ul className="list-disc list-inside space-y-1">
+                                           {report.aiRecommendations.map((rec, i) => (
+                                               <li key={i} className="text-sm text-slate-700">{rec}</li>
+                                           ))}
+                                       </ul>
+                                   </div>
+                                   <div className="text-xs text-slate-400 font-mono bg-slate-50 p-2 rounded">
+                                       System Log: {report.rawLogSummary}
+                                   </div>
+                               </div>
+                           </div>
+                       )) : (
+                           <div className="text-center py-10 text-slate-400 italic">No reports generated yet. Run a diagnostic scan to see data.</div>
+                       )}
                   </div>
               )}
 

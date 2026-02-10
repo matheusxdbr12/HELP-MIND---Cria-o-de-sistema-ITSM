@@ -1,4 +1,4 @@
-import { Ticket, User, TicketStatus, Priority, Category, Sentiment, Message, Asset, AssetType, AssetStatus, AgentScore, Brand, Model, Department, AssetCondition } from "../types";
+import { Ticket, User, TicketStatus, Priority, Category, Sentiment, Message, Asset, AssetType, AssetStatus, AgentScore, Brand, Model, Department, AssetCondition, Feedback, AssetReport, AuditLog, SystemConfig, SystemHealth } from "../types";
 
 // --- Registries ---
 
@@ -46,27 +46,62 @@ export const DEPARTMENTS: Department[] = [
 
 // --- Mock Users ---
 
-export const USERS: Record<string, User> = {
+// Mutable container for users to support registration
+export let USERS: Record<string, User> = {
   'user1': { 
-    id: 'user1', name: 'Alice Customer', role: 'CUSTOMER', avatar: 'https://picsum.photos/id/64/100/100', departmentId: 'D-DES'
+    id: 'user1', email: 'alice@company.com', password: 'password', name: 'Alice Customer', role: 'CUSTOMER', avatar: 'https://picsum.photos/id/64/100/100', departmentId: 'D-DES', status: 'ACTIVE'
   },
   'agent1': { 
-    id: 'agent1', name: 'Bob Agent (Tech)', role: 'AGENT', avatar: 'https://picsum.photos/id/1005/100/100', departmentId: 'D-IT',
+    id: 'agent1', email: 'bob@helpmind.com', password: 'password', name: 'Bob Agent (Tech)', role: 'AGENT', avatar: 'https://picsum.photos/id/1005/100/100', departmentId: 'D-IT', status: 'ACTIVE',
     skills: [Category.TECHNICAL, Category.GENERAL],
     efficiencyRating: 88,
     activeTicketCount: 3,
     assetFamiliarityScore: { 'XPS 15 9530': 95 }
   },
   'agent2': { 
-    id: 'agent2', name: 'Sarah Finance', role: 'AGENT', avatar: 'https://picsum.photos/id/1011/100/100', departmentId: 'D-FIN',
+    id: 'agent2', email: 'sarah@helpmind.com', password: 'password', name: 'Sarah Finance', role: 'AGENT', avatar: 'https://picsum.photos/id/1011/100/100', departmentId: 'D-FIN', status: 'ACTIVE',
     skills: [Category.FINANCE, Category.SALES],
     efficiencyRating: 92,
     activeTicketCount: 1,
     assetFamiliarityScore: {}
+  },
+  'admin1': {
+      id: 'admin1', email: 'admin@helpmind.com', password: 'password', name: 'System Administrator', role: 'SUPER_ADMIN', avatar: 'https://ui-avatars.com/api/?name=System+Admin&background=1e293b&color=fff', status: 'ACTIVE'
   }
 };
 
-// --- Mock Assets (Hierarchical) ---
+// --- Admin & Security Stores ---
+let auditLogs: AuditLog[] = [
+    { id: 'log-1', actorId: 'system', actorName: 'System Boot', action: 'SYSTEM_STARTUP', details: 'Services initialized', timestamp: Date.now() - 1000000, severity: 'INFO', ipAddress: '127.0.0.1' },
+    { id: 'log-2', actorId: 'user1', actorName: 'Alice Customer', action: 'LOGIN_SUCCESS', details: 'User logged in via Web', timestamp: Date.now() - 500000, severity: 'INFO', ipAddress: '192.168.1.50' }
+];
+
+let systemConfig: SystemConfig = {
+    maintenanceMode: false,
+    lockdownMode: false,
+    allowNewRegistrations: true,
+    systemVersion: '2.4.0-RC1',
+    lastBackupAt: Date.now() - 86400000
+};
+
+// --- Mock Data Containers ---
+let tickets: Ticket[] = [
+  {
+    id: 'T-1001',
+    title: 'Login failing on mobile app',
+    description: 'I cannot log in to the IOS app after the latest update.',
+    category: Category.TECHNICAL,
+    priority: Priority.HIGH,
+    status: TicketStatus.OPEN,
+    sentiment: Sentiment.FRUSTRATED,
+    createdAt: Date.now() - 86400000,
+    updatedAt: Date.now() - 86000000,
+    customerId: 'user1',
+    messages: [
+      { id: 'm1', ticketId: 'T-1001', senderId: 'user1', senderName: 'Alice Customer', content: 'I cannot log in to the IOS app after the latest update.', timestamp: Date.now() - 86400000, isInternal: false }
+    ]
+  }
+];
 
 let assets: Asset[] = [
   {
@@ -108,26 +143,25 @@ let assets: Asset[] = [
   }
 ];
 
-// --- Mock Initial Tickets ---
-let tickets: Ticket[] = [
-  {
-    id: 'T-1001',
-    title: 'Login failing on mobile app',
-    description: 'I cannot log in to the IOS app after the latest update.',
-    category: Category.TECHNICAL,
-    priority: Priority.HIGH,
-    status: TicketStatus.OPEN,
-    sentiment: Sentiment.FRUSTRATED,
-    createdAt: Date.now() - 86400000,
-    updatedAt: Date.now() - 86000000,
-    customerId: 'user1',
-    messages: [
-      { id: 'm1', ticketId: 'T-1001', senderId: 'user1', senderName: 'Alice Customer', content: 'I cannot log in to the IOS app after the latest update.', timestamp: Date.now() - 86400000, isInternal: false }
-    ]
-  }
-];
+let feedbackStore: Feedback[] = [];
+let assetReportStore: AssetReport[] = [];
 
-// --- Stores ---
+// --- User Management & Auth Logic ---
+export const registerUser = (user: User) => {
+    // Check if email exists
+    const existing = Object.values(USERS).find(u => u.email === user.email);
+    if (existing) throw new Error("Email already registered");
+    
+    USERS[user.id] = {...user, status: 'ACTIVE'};
+    logAdminAction('system', 'USER_REGISTER', user.id, `New user registration: ${user.email}`, 'INFO');
+    return user;
+};
+
+export const findUserByEmail = (email: string) => {
+    return Object.values(USERS).find(u => u.email === email);
+};
+
+// --- Ticket Stores ---
 export const getTickets = () => [...tickets];
 export const getTicketById = (id: string) => tickets.find(t => t.id === id);
 export const addTicket = (ticket: Ticket) => { tickets = [ticket, ...tickets]; return ticket; };
@@ -138,6 +172,24 @@ export const addMessageToTicket = (ticketId: string, message: Message) => {
 export const updateTicketAnalysis = (id: string, analysis: Partial<Ticket['aiAnalysis']>) => { tickets = tickets.map(t => t.id === id ? { ...t, aiAnalysis: { ...t.aiAnalysis, ...analysis } } : t); }
 export const updateTicketAssignee = (ticketId: string, agentId: string) => { tickets = tickets.map(t => t.id === ticketId ? { ...t, assignedAgentId: agentId } : t); }
 export const linkAssetToTicket = (ticketId: string, assetId: string | undefined) => { tickets = tickets.map(t => t.id === ticketId ? { ...t, linkedAssetId: assetId } : t); }
+
+// --- Feedback Methods ---
+export const submitFeedback = (feedback: Feedback) => {
+    feedbackStore.push(feedback);
+    // Link to ticket and close it
+    tickets = tickets.map(t => t.id === feedback.ticketId ? { ...t, feedbackId: feedback.id, status: TicketStatus.CLOSED } : t);
+    return feedback;
+};
+
+export const getTicketFeedback = (ticketId: string) => feedbackStore.find(f => f.ticketId === ticketId);
+
+// --- Asset Reporting Methods ---
+export const addAssetReport = (report: AssetReport) => {
+    assetReportStore = [report, ...assetReportStore];
+    return report;
+}
+export const getAssetReports = (assetId: string) => assetReportStore.filter(r => r.assetId === assetId);
+
 
 // Asset Methods
 export const getAssets = () => [...assets];
@@ -217,4 +269,65 @@ export const getDynamicFieldsForCategory = (category: Category): { id: string; l
         default:
             return [];
     }
+}
+
+// --- Admin & Security Logic ---
+
+export const logAdminAction = (actorId: string, action: string, targetId: string | undefined, details: string, severity: 'INFO' | 'WARNING' | 'CRITICAL') => {
+    const log: AuditLog = {
+        id: `log-${Date.now()}`,
+        actorId,
+        actorName: actorId === 'system' ? 'System' : USERS[actorId]?.name || 'Unknown',
+        action,
+        targetId,
+        details,
+        timestamp: Date.now(),
+        severity,
+        ipAddress: '192.168.1.100' // Mock IP
+    };
+    auditLogs = [log, ...auditLogs];
+    return log;
+};
+
+export const getAuditLogs = () => [...auditLogs];
+
+export const getSystemConfig = () => ({...systemConfig});
+
+export const updateSystemConfig = (actorId: string, updates: Partial<SystemConfig>) => {
+    const oldConfig = {...systemConfig};
+    systemConfig = { ...systemConfig, ...updates };
+    
+    // Log changes
+    const changes = Object.keys(updates).map(k => `${k}: ${oldConfig[k as keyof SystemConfig]} -> ${updates[k as keyof SystemConfig]}`).join(', ');
+    logAdminAction(actorId, 'CONFIG_CHANGE', undefined, `Updated system config: ${changes}`, 'WARNING');
+    
+    return systemConfig;
+};
+
+export const getAllUsers = () => Object.values(USERS);
+
+export const toggleUserStatus = (actorId: string, userId: string, status: 'ACTIVE' | 'SUSPENDED') => {
+    if (USERS[userId]) {
+        USERS[userId] = { ...USERS[userId], status };
+        logAdminAction(actorId, status === 'SUSPENDED' ? 'USER_SUSPEND' : 'USER_ACTIVATE', userId, `User ${USERS[userId].email} status changed to ${status}`, 'CRITICAL');
+    }
+}
+
+export const adminResetPassword = (actorId: string, userId: string) => {
+    if (USERS[userId]) {
+        // Mock password reset
+        USERS[userId] = { ...USERS[userId], password: 'password123' };
+        logAdminAction(actorId, 'FORCE_PASS_RESET', userId, `Force password reset for ${USERS[userId].email}`, 'WARNING');
+    }
+}
+
+export const getSystemHealth = (): SystemHealth => {
+    // Mock health metrics
+    return {
+        status: systemConfig.lockdownMode ? 'CRITICAL' : systemConfig.maintenanceMode ? 'DEGRADED' : 'HEALTHY',
+        uptime: 1402394, // seconds
+        activeUsers: Object.values(USERS).filter(u => u.status === 'ACTIVE').length,
+        databaseLatency: Math.floor(Math.random() * 20) + 5,
+        pendingJobs: tickets.filter(t => t.status === TicketStatus.OPEN).length
+    };
 }

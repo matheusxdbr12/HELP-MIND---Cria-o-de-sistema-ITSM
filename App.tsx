@@ -7,18 +7,24 @@ import { AssetList } from './components/AssetList';
 import { AssetDetail } from './components/AssetDetail';
 import { AssetForm } from './components/AssetForm';
 import { AnalyticsDashboard } from './components/AnalyticsDashboard';
-import { USERS, getTickets, getTicketById, getAssets, getAssetById } from './services/mockStore';
+import { AdminDashboard } from './components/admin/AdminDashboard';
+import { Login } from './components/auth/Login';
+import { Register } from './components/auth/Register';
+import { AuthProvider, useAuth } from './context/AuthContext';
+import { getTickets, getTicketById, getAssets, getAssetById } from './services/mockStore';
 import { Ticket, Asset } from './types';
 
-const App: React.FC = () => {
-  const [currentRole, setCurrentRole] = useState<'CUSTOMER' | 'AGENT'>('CUSTOMER');
+// Main Application Layout
+const AppLayout: React.FC = () => {
+  const { user, isAuthenticated, isLoading } = useAuth();
   const [activeView, setActiveView] = useState('portal');
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [assets, setAssets] = useState<Asset[]>([]);
   const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null);
   const [selectedAssetId, setSelectedAssetId] = useState<string | null>(null);
-
-  const currentUser = currentRole === 'CUSTOMER' ? USERS['user1'] : USERS['agent1'];
+  
+  // Auth Flow State
+  const [authView, setAuthView] = useState<'LOGIN' | 'REGISTER'>('LOGIN');
 
   const refreshData = () => {
     setTickets(getTickets());
@@ -26,8 +32,29 @@ const App: React.FC = () => {
   };
 
   useEffect(() => {
-    refreshData();
-  }, [currentRole, activeView]);
+    if (isAuthenticated) {
+        refreshData();
+        // Reset view based on role if just logged in
+        if (activeView === 'portal' && user?.role === 'AGENT') setActiveView('dashboard');
+        if (activeView === 'portal' && user?.role === 'SUPER_ADMIN') setActiveView('admin-console');
+        if (activeView === 'dashboard' && user?.role === 'CUSTOMER') setActiveView('portal');
+    }
+  }, [isAuthenticated, user, activeView]);
+
+  if (isLoading) {
+      return (
+          <div className="min-h-screen bg-slate-100 flex items-center justify-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+          </div>
+      );
+  }
+
+  if (!isAuthenticated) {
+      if (authView === 'REGISTER') {
+          return <Register onSwitchToLogin={() => setAuthView('LOGIN')} />;
+      }
+      return <Login onSwitchToRegister={() => setAuthView('REGISTER')} />;
+  }
 
   const handleTicketCreated = () => {
     refreshData();
@@ -56,8 +83,8 @@ const App: React.FC = () => {
         return (
           <TicketDetail 
             ticket={ticket} 
-            currentUser={currentUser} 
-            onBack={() => setActiveView(currentRole === 'CUSTOMER' ? 'my-tickets' : 'dashboard')}
+            currentUser={user!} 
+            onBack={() => setActiveView(user?.role === 'CUSTOMER' ? 'my-tickets' : 'dashboard')}
             onUpdate={refreshData}
           />
         );
@@ -83,9 +110,9 @@ const App: React.FC = () => {
 
     switch (activeView) {
       case 'portal':
-        return <TicketForm onTicketCreated={handleTicketCreated} currentUser={currentUser} />;
+        return <TicketForm onTicketCreated={handleTicketCreated} currentUser={user} />;
       case 'my-tickets':
-        const myTickets = tickets.filter(t => t.customerId === currentUser.id);
+        const myTickets = tickets.filter(t => t.customerId === user?.id);
         return (
           <div className="max-w-6xl mx-auto">
             <h2 className="text-2xl font-bold text-slate-800 mb-6">My Support Requests</h2>
@@ -117,7 +144,7 @@ const App: React.FC = () => {
                         <h2 className="text-2xl font-bold text-slate-800">IT Assets Inventory</h2>
                         <span className="text-sm text-slate-500">Manage hardware, software, and organization allocations.</span>
                     </div>
-                    {currentRole === 'AGENT' && (
+                    {user?.role === 'AGENT' && (
                         <button 
                             onClick={() => setActiveView('assets-new')}
                             className="bg-indigo-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-indigo-700 transition-colors flex items-center"
@@ -132,6 +159,8 @@ const App: React.FC = () => {
           );
       case 'analytics':
           return <AnalyticsDashboard />;
+      case 'admin-console':
+          return user?.role === 'SUPER_ADMIN' ? <AdminDashboard /> : <div>Unauthorized</div>;
       default:
         return <div>Not Found</div>;
     }
@@ -140,8 +169,6 @@ const App: React.FC = () => {
   return (
     <div className="min-h-screen bg-slate-100 font-sans">
       <Sidebar 
-        currentRole={currentRole} 
-        setRole={setCurrentRole} 
         activeView={activeView} 
         setActiveView={setActiveView} 
       />
@@ -166,5 +193,14 @@ const App: React.FC = () => {
     </div>
   );
 };
+
+// Root Component wrapping Context
+const App: React.FC = () => {
+    return (
+        <AuthProvider>
+            <AppLayout />
+        </AuthProvider>
+    );
+}
 
 export default App;

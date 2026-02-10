@@ -1,5 +1,5 @@
 import { GoogleGenAI, Type } from "@google/genai";
-import { Ticket, Category, Priority, Sentiment, Asset, AnalyticsResponse, AssetCondition } from "../types";
+import { Ticket, Category, Priority, Sentiment, Asset, AnalyticsResponse, AssetCondition, Feedback, AssetReport } from "../types";
 
 // Initialize Gemini Client
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
@@ -204,6 +204,94 @@ export const evaluateAssetHealth = async (asset: Asset, modelName: string): Prom
         return JSON.parse(response.text || '{}');
     } catch (e) {
         return { recommendation: "Review", score: 0, justification: "AI Analysis failed" };
+    }
+}
+
+/**
+ * Analyze Feedback for Coaching
+ */
+export const analyzeCustomerFeedback = async (ratings: any, comment: string): Promise<{ sentimentScore: number, coachingTips: string, themes: string[] }> => {
+    try {
+        const prompt = `
+            Analyze this user feedback survey.
+            Ratings: ${JSON.stringify(ratings)}
+            Comment: "${comment}"
+
+            Identify:
+            1. Sentiment Score (0-100)
+            2. Coaching tips for the agent.
+            3. Key themes (e.g. "Slow Response", "Knowledgeable", "Rude").
+            
+            Return JSON.
+        `;
+
+        const response = await ai.models.generateContent({
+            model: 'gemini-3-flash-preview',
+            contents: prompt,
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: Type.OBJECT,
+                    properties: {
+                        sentimentScore: { type: Type.NUMBER },
+                        coachingTips: { type: Type.STRING },
+                        themes: { type: Type.ARRAY, items: { type: Type.STRING } }
+                    }
+                }
+            }
+        });
+        return JSON.parse(response.text || '{}');
+    } catch (e) {
+        return { sentimentScore: 50, coachingTips: "Feedback recorded.", themes: [] };
+    }
+}
+
+/**
+ * Generate Realistic Mock Diagnostic Report
+ */
+export const generateAssetDiagnostic = async (asset: Asset, modelName: string): Promise<Partial<AssetReport>> => {
+    try {
+         const ageMonths = Math.floor((Date.now() - asset.purchaseDate) / (1000 * 60 * 60 * 24 * 30));
+         const prompt = `
+            Generate a realistic, detailed mock diagnostic report for a ${modelName} that is ${ageMonths} months old.
+            Asset Condition: ${asset.condition}.
+            
+            Create 3-5 technical metrics (e.g. Battery Cycle Count, CPU Idle Temp, SSD Health, Free Space).
+            Provide 3 actionable maintenance recommendations.
+            Give an overall health score (0-100).
+            
+            Return JSON matching the schema.
+         `;
+         
+         const response = await ai.models.generateContent({
+             model: 'gemini-3-flash-preview',
+             contents: prompt,
+             config: {
+                 responseMimeType: "application/json",
+                 responseSchema: {
+                     type: Type.OBJECT,
+                     properties: {
+                         overallHealthScore: { type: Type.NUMBER },
+                         metrics: { 
+                             type: Type.ARRAY, 
+                             items: { 
+                                 type: Type.OBJECT,
+                                 properties: {
+                                     name: { type: Type.STRING },
+                                     value: { type: Type.STRING },
+                                     status: { type: Type.STRING, enum: ['OK', 'WARNING', 'CRITICAL'] }
+                                 }
+                             }
+                         },
+                         aiRecommendations: { type: Type.ARRAY, items: { type: Type.STRING } }
+                     }
+                 }
+             }
+         });
+         
+         return JSON.parse(response.text || '{}');
+    } catch (e) {
+        return { overallHealthScore: 0, metrics: [], aiRecommendations: [] };
     }
 }
 
