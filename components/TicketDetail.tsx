@@ -4,6 +4,7 @@ import { generateTicketSummary, generateAgentDraft, analyzeRootCause, analyzeCus
 import { addMessageToTicket, updateTicketAnalysis, updateTicketStatus, getAssetById, linkAssetToTicket, getAssets, calculateBestAgent, updateTicketAssignee, getAssetWithDetails, submitFeedback, getTicketFeedback } from '../services/mockStore';
 import { formatTimeRemaining, getSLAStatus } from '../services/slaService';
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
 
 interface TicketDetailProps {
   ticket: Ticket;
@@ -14,6 +15,7 @@ interface TicketDetailProps {
 
 export const TicketDetail: React.FC<TicketDetailProps> = ({ ticket, currentUser, onBack, onUpdate }) => {
   const { hasPermission } = useAuth();
+  const { t } = useLanguage();
   
   const [newMessage, setNewMessage] = useState('');
   const [summary, setSummary] = useState(ticket.aiAnalysis?.summary || '');
@@ -173,16 +175,16 @@ export const TicketDetail: React.FC<TicketDetailProps> = ({ ticket, currentUser,
                       <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
                           <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
                       </div>
-                      <h2 className="text-2xl font-bold text-slate-900">Issue Resolved!</h2>
-                      <p className="text-slate-500">Please rate your support experience to close this ticket.</p>
+                      <h2 className="text-2xl font-bold text-slate-900">{t('issueResolved')}</h2>
+                      <p className="text-slate-500">{t('rateExperience')}</p>
                   </div>
 
                   <div className="space-y-4 mb-6">
                       {[
-                          { key: 'overall', label: 'Overall Satisfaction' },
-                          { key: 'technical', label: 'Technical Expertise' },
-                          { key: 'courtesy', label: 'Agent Courtesy' },
-                          { key: 'timeliness', label: 'Resolution Time' }
+                          { key: 'overall', label: t('overallSatisfaction') },
+                          { key: 'technical', label: t('technicalExpertise') },
+                          { key: 'courtesy', label: t('agentCourtesy') },
+                          { key: 'timeliness', label: t('resolutionTime') }
                       ].map((metric) => (
                           <div key={metric.key} className="flex items-center justify-between">
                               <span className="text-sm font-medium text-slate-700">{metric.label}</span>
@@ -207,11 +209,11 @@ export const TicketDetail: React.FC<TicketDetailProps> = ({ ticket, currentUser,
                   </div>
 
                   <div className="mb-6">
-                      <label className="block text-sm font-medium text-slate-700 mb-2">Comments (Optional)</label>
+                      <label className="block text-sm font-medium text-slate-700 mb-2">{t('commentsOptional')}</label>
                       <textarea 
                         className="w-full border border-slate-300 rounded-lg p-3 focus:ring-2 focus:ring-indigo-500 outline-none"
                         rows={3}
-                        placeholder="What did we do well? What can we improve?"
+                        placeholder={t('commentsPlaceholder')}
                         value={feedbackComment}
                         onChange={(e) => setFeedbackComment(e.target.value)}
                       />
@@ -222,14 +224,14 @@ export const TicketDetail: React.FC<TicketDetailProps> = ({ ticket, currentUser,
                         onClick={() => setShowFeedbackModal(false)}
                         className="flex-1 py-3 text-slate-600 font-medium hover:bg-slate-100 rounded-xl"
                       >
-                          Cancel
+                          {t('cancel')}
                       </button>
                       <button 
                         onClick={handleSubmitFeedback}
                         disabled={ratings.overall === 0}
                         className="flex-1 py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-indigo-200"
                       >
-                          Submit & Close
+                          {t('submitClose')}
                       </button>
                   </div>
               </div>
@@ -279,16 +281,16 @@ export const TicketDetail: React.FC<TicketDetailProps> = ({ ticket, currentUser,
             }`}>
                 <div className="flex items-center space-x-2">
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                    <span>SLA Timer: {ticket.slaTier} Tier</span>
+                    <span>{t('slaTimer')}: {ticket.slaTier} Tier</span>
                 </div>
                 <div>
                     {slaStatus === 'BREACHED' ? (
                         <span className="font-bold uppercase tracking-wide flex items-center">
-                            Breached by {timeRemaining.replace('-', '')}
+                            {t('breachedBy')} {timeRemaining.replace('-', '')}
                             <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
                         </span>
                     ) : (
-                        <span>Due in <span className="font-bold font-mono">{timeRemaining}</span></span>
+                        <span>{t('dueIn')} <span className="font-bold font-mono">{timeRemaining}</span></span>
                     )}
                 </div>
             </div>
@@ -302,8 +304,8 @@ export const TicketDetail: React.FC<TicketDetailProps> = ({ ticket, currentUser,
                         <svg className="w-6 h-6 text-green-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                     </div>
                     <div>
-                        <h3 className="text-sm font-bold text-green-900">Agent marked this issue as resolved</h3>
-                        <p className="text-xs text-green-700">Please confirm if your issue is fixed to close the ticket.</p>
+                        <h3 className="text-sm font-bold text-green-900">{t('agentMarkedResolved')}</h3>
+                        <p className="text-xs text-green-700">{t('confirmResolutionDesc')}</p>
                     </div>
                 </div>
                 <div className="flex space-x-3">
@@ -311,13 +313,13 @@ export const TicketDetail: React.FC<TicketDetailProps> = ({ ticket, currentUser,
                         onClick={handleReopen}
                         className="px-4 py-2 bg-white text-slate-700 text-sm font-medium border border-slate-300 rounded-lg hover:bg-slate-50"
                     >
-                        Issue Persists (Reopen)
+                        {t('issuePersists')}
                     </button>
                     <button 
                         onClick={() => setShowFeedbackModal(true)}
                         className="px-4 py-2 bg-green-600 text-white text-sm font-bold rounded-lg hover:bg-green-700 shadow-sm"
                     >
-                        Confirm Resolution
+                        {t('confirmResolution')}
                     </button>
                 </div>
             </div>
@@ -365,12 +367,12 @@ export const TicketDetail: React.FC<TicketDetailProps> = ({ ticket, currentUser,
                 {draft && (
                     <div className="mb-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg flex justify-between items-start animate-fade-in">
                         <div>
-                            <span className="text-xs font-bold text-yellow-700 uppercase">AI Draft Suggestion</span>
+                            <span className="text-xs font-bold text-yellow-700 uppercase">{t('aiDraftSuggestion')}</span>
                             <p className="text-sm text-yellow-900 mt-1 whitespace-pre-wrap">{draft}</p>
                         </div>
                         <div className="flex space-x-2 shrink-0 ml-4">
-                            <button onClick={handleApplyDraft} className="text-xs bg-yellow-200 hover:bg-yellow-300 text-yellow-800 px-2 py-1 rounded">Use</button>
-                            <button onClick={() => setDraft('')} className="text-xs text-yellow-600 hover:text-yellow-800 px-2 py-1">Discard</button>
+                            <button onClick={handleApplyDraft} className="text-xs bg-yellow-200 hover:bg-yellow-300 text-yellow-800 px-2 py-1 rounded">{t('use')}</button>
+                            <button onClick={() => setDraft('')} className="text-xs text-yellow-600 hover:text-yellow-800 px-2 py-1">{t('discard')}</button>
                         </div>
                     </div>
                 )}
@@ -378,7 +380,7 @@ export const TicketDetail: React.FC<TicketDetailProps> = ({ ticket, currentUser,
                 <textarea
                   value={newMessage}
                   onChange={(e) => setNewMessage(e.target.value)}
-                  placeholder="Type your reply..."
+                  placeholder={t('typeReply')}
                   className="flex-1 p-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 resize-none h-24 outline-none transition-all"
                 />
                 <div className="flex flex-col gap-2">
@@ -408,7 +410,7 @@ export const TicketDetail: React.FC<TicketDetailProps> = ({ ticket, currentUser,
                                     type="button"
                                     onClick={handleRequestVerification}
                                     className="flex-1 px-4 bg-green-100 hover:bg-green-200 text-green-700 rounded-xl font-medium transition-colors flex items-center justify-center"
-                                    title="Mark Resolved"
+                                    title={t('markResolved')}
                                 >
                                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
                                 </button>
@@ -468,7 +470,7 @@ export const TicketDetail: React.FC<TicketDetailProps> = ({ ticket, currentUser,
              <div className="bg-white p-5 rounded-xl shadow border border-indigo-100 ring-2 ring-indigo-50">
                  <div className="flex items-center space-x-2 mb-4">
                      <svg className="w-5 h-5 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
-                     <h3 className="font-bold text-slate-800">Smart Assignment</h3>
+                     <h3 className="font-bold text-slate-800">{t('smartAssignment')}</h3>
                  </div>
                  
                  <div className="space-y-3">
@@ -477,7 +479,7 @@ export const TicketDetail: React.FC<TicketDetailProps> = ({ ticket, currentUser,
                              <div className="flex justify-between items-center mb-2">
                                  <div className="flex items-center space-x-2">
                                      <div className="text-xs font-bold text-slate-700">{score.agent.name.split(' ')[0]}</div>
-                                     {idx === 0 && <span className="bg-green-100 text-green-700 text-[10px] px-1.5 py-0.5 rounded font-bold">Best Fit</span>}
+                                     {idx === 0 && <span className="bg-green-100 text-green-700 text-[10px] px-1.5 py-0.5 rounded font-bold">{t('bestFit')}</span>}
                                  </div>
                                  <div className="text-sm font-bold text-indigo-600">{score.totalScore}%</div>
                              </div>
@@ -494,11 +496,11 @@ export const TicketDetail: React.FC<TicketDetailProps> = ({ ticket, currentUser,
                                     onClick={() => handleAssignAgent(score.agent.id)}
                                     className="w-full py-1.5 text-xs bg-white border border-slate-300 hover:border-indigo-500 hover:text-indigo-600 rounded shadow-sm transition-colors"
                                  >
-                                     Assign
+                                     {t('assign')}
                                  </button>
                              )}
                              {ticket.assignedAgentId === score.agent.id && (
-                                 <div className="w-full py-1.5 text-xs bg-indigo-100 text-indigo-700 text-center rounded font-medium">Assigned</div>
+                                 <div className="w-full py-1.5 text-xs bg-indigo-100 text-indigo-700 text-center rounded font-medium">{t('assigned')}</div>
                              )}
                          </div>
                      ))}
@@ -509,17 +511,17 @@ export const TicketDetail: React.FC<TicketDetailProps> = ({ ticket, currentUser,
         {/* Linked Asset Card */}
         <div className="bg-white p-5 rounded-xl shadow border border-slate-200">
             <div className="flex justify-between items-center mb-4">
-                <h3 className="font-bold text-slate-800">Linked Asset</h3>
+                <h3 className="font-bold text-slate-800">{t('linkedAsset')}</h3>
                 {hasPermission(AppPermission.MANAGE_TICKETS) && ticket.status !== TicketStatus.CLOSED && (
                     <button onClick={() => setIsLinking(!isLinking)} className="text-xs text-indigo-600 font-medium hover:text-indigo-800">
-                        {linkedAsset ? 'Change' : 'Link'}
+                        {linkedAsset ? t('change') : t('link')}
                     </button>
                 )}
             </div>
 
             {isLinking && (
                 <div className="mb-4 bg-slate-50 p-3 rounded-lg border border-slate-100">
-                    <p className="text-xs text-slate-500 mb-2">Select Asset to Link:</p>
+                    <p className="text-xs text-slate-500 mb-2">{t('selectAssetToLink')}</p>
                     <div className="space-y-1 max-h-40 overflow-y-auto">
                         {getAssets().map(asset => (
                             <button 
@@ -562,7 +564,7 @@ export const TicketDetail: React.FC<TicketDetailProps> = ({ ticket, currentUser,
                     <div className={`mt-2 text-xs font-bold ${
                         (assetDetails.warrantyExpiry - Date.now()) < 0 ? 'text-red-600' : 'text-green-600'
                     }`}>
-                        {(assetDetails.warrantyExpiry - Date.now()) < 0 ? 'Warranty Expired' : 'Warranty Active'}
+                        {(assetDetails.warrantyExpiry - Date.now()) < 0 ? t('warrantyExpired') : t('warrantyActive')}
                     </div>
                 </div>
             ) : (
@@ -574,18 +576,18 @@ export const TicketDetail: React.FC<TicketDetailProps> = ({ ticket, currentUser,
 
         {/* Ticket Details Card */}
         <div className="bg-white p-5 rounded-xl shadow border border-slate-200">
-            <h3 className="font-bold text-slate-800 mb-4">Ticket Details</h3>
+            <h3 className="font-bold text-slate-800 mb-4">{t('ticketDetails')}</h3>
             <div className="space-y-4 text-sm">
                 <div>
-                    <span className="text-slate-500 block text-xs uppercase tracking-wide">Customer</span>
+                    <span className="text-slate-500 block text-xs uppercase tracking-wide">{t('customer')}</span>
                     <span className="font-medium text-slate-900">{ticket.customerId}</span>
                 </div>
                  <div>
-                    <span className="text-slate-500 block text-xs uppercase tracking-wide">Category</span>
+                    <span className="text-slate-500 block text-xs uppercase tracking-wide">{t('category')}</span>
                     <span className="font-medium text-slate-900">{ticket.category}</span>
                 </div>
                 <div>
-                     <span className="text-slate-500 block text-xs uppercase tracking-wide">Sentiment Analysis</span>
+                     <span className="text-slate-500 block text-xs uppercase tracking-wide">{t('sentimentAnalysis')}</span>
                      <div className="flex items-center mt-1">
                          <div className={`w-2 h-2 rounded-full mr-2 ${
                              ticket.sentiment === 'Positive' ? 'bg-green-500' :
@@ -613,19 +615,19 @@ export const TicketDetail: React.FC<TicketDetailProps> = ({ ticket, currentUser,
             <div className="bg-white p-5 rounded-xl shadow border border-slate-200 flex-1 overflow-y-auto">
                 <div className="flex items-center space-x-2 mb-4">
                     <svg className="w-5 h-5 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
-                    <h3 className="font-bold text-slate-800">Agent Copilot</h3>
+                    <h3 className="font-bold text-slate-800">{t('agentCopilot')}</h3>
                 </div>
 
                 {/* Summarization */}
                 <div className="mb-6">
                     <div className="flex justify-between items-center mb-2">
-                        <h4 className="text-xs font-bold text-slate-500 uppercase">Context Summary</h4>
+                        <h4 className="text-xs font-bold text-slate-500 uppercase">{t('contextSummary')}</h4>
                         <button 
                             onClick={handleGenerateSummary}
                             disabled={isSummarizing}
                             className="text-xs text-indigo-600 hover:text-indigo-800 font-medium"
                         >
-                            {isSummarizing ? 'Generating...' : 'Refresh'}
+                            {isSummarizing ? t('generating') : t('refresh')}
                         </button>
                     </div>
                     <div className="bg-slate-50 p-3 rounded-lg border border-slate-100 text-sm text-slate-700 leading-relaxed min-h-[60px]">
@@ -637,13 +639,13 @@ export const TicketDetail: React.FC<TicketDetailProps> = ({ ticket, currentUser,
                 {ticket.category === 'Technical Support' && (
                      <div className="mb-6">
                         <div className="flex justify-between items-center mb-2">
-                             <h4 className="text-xs font-bold text-slate-500 uppercase">Root Cause Analysis</h4>
+                             <h4 className="text-xs font-bold text-slate-500 uppercase">{t('rootCauseAnalysis')}</h4>
                              <button 
                                  onClick={handleRootCause}
                                  disabled={isAnalyzingRoot}
                                  className="text-xs text-indigo-600 hover:text-indigo-800 font-medium"
                              >
-                                 {isAnalyzingRoot ? 'Analyzing...' : 'Analyze'}
+                                 {isAnalyzingRoot ? t('analyzingRoot') : t('analyze')}
                              </button>
                          </div>
                          <div className="bg-slate-50 p-3 rounded-lg border border-slate-100 text-sm text-slate-700 leading-relaxed">

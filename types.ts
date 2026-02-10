@@ -33,9 +33,11 @@ export type UserRole = 'CUSTOMER' | 'AGENT' | 'ADMIN' | 'SUPER_ADMIN';
 export enum AppPermission {
   // Ticket Permissions
   VIEW_OWN_TICKETS = 'VIEW_OWN_TICKETS',
-  VIEW_ALL_TICKETS = 'VIEW_ALL_TICKETS', // Agent Queue
+  VIEW_ALL_TICKETS = 'VIEW_ALL_TICKETS', // Global Admin Queue
+  VIEW_DEPARTMENT_TICKETS = 'VIEW_DEPARTMENT_TICKETS', // Department/Assigned Queue
   CREATE_TICKET = 'CREATE_TICKET',
   MANAGE_TICKETS = 'MANAGE_TICKETS', // Edit status, assign, internal notes
+  ESCALATE_TICKETS = 'ESCALATE_TICKETS', // New
   
   // Asset Permissions
   VIEW_MY_ASSETS = 'VIEW_MY_ASSETS',
@@ -47,7 +49,13 @@ export enum AppPermission {
   VIEW_ANALYTICS = 'VIEW_ANALYTICS',
   MANAGE_USERS = 'MANAGE_USERS',
   MANAGE_SYSTEM = 'MANAGE_SYSTEM', // Super Admin configs
-  VIEW_AUDIT_LOGS = 'VIEW_AUDIT_LOGS'
+  VIEW_AUDIT_LOGS = 'VIEW_AUDIT_LOGS',
+
+  // Escalation Permissions (New)
+  MANAGE_ESCALATION_GROUPS = 'MANAGE_ESCALATION_GROUPS',
+  VIEW_ESCALATION_GROUPS = 'VIEW_ESCALATION_GROUPS',
+  MANAGE_ESCALATION_RULES = 'MANAGE_ESCALATION_RULES',
+  VIEW_ESCALATION_RULES = 'VIEW_ESCALATION_RULES',
 }
 
 export const ROLE_PERMISSIONS: Record<UserRole, AppPermission[]> = {
@@ -59,30 +67,38 @@ export const ROLE_PERMISSIONS: Record<UserRole, AppPermission[]> = {
   AGENT: [
     AppPermission.VIEW_OWN_TICKETS, // Agents can also be customers
     AppPermission.CREATE_TICKET,
-    AppPermission.VIEW_ALL_TICKETS,
+    AppPermission.VIEW_DEPARTMENT_TICKETS, // Restricted view
     AppPermission.MANAGE_TICKETS,
+    AppPermission.ESCALATE_TICKETS,
     AppPermission.VIEW_ALL_ASSETS,
     AppPermission.VIEW_MY_ASSETS,
     AppPermission.RUN_DIAGNOSTICS,
-    AppPermission.VIEW_ANALYTICS
+    AppPermission.VIEW_ANALYTICS,
+    AppPermission.VIEW_ESCALATION_GROUPS
   ],
   ADMIN: [
     AppPermission.VIEW_OWN_TICKETS,
     AppPermission.CREATE_TICKET,
     AppPermission.VIEW_ALL_TICKETS,
     AppPermission.MANAGE_TICKETS,
+    AppPermission.ESCALATE_TICKETS,
     AppPermission.VIEW_ALL_ASSETS,
     AppPermission.VIEW_MY_ASSETS,
     AppPermission.MANAGE_ASSETS,
     AppPermission.RUN_DIAGNOSTICS,
     AppPermission.VIEW_ANALYTICS,
-    AppPermission.MANAGE_USERS
+    AppPermission.MANAGE_USERS,
+    AppPermission.MANAGE_ESCALATION_GROUPS,
+    AppPermission.VIEW_ESCALATION_GROUPS,
+    AppPermission.MANAGE_ESCALATION_RULES,
+    AppPermission.VIEW_ESCALATION_RULES
   ],
   SUPER_ADMIN: [
     AppPermission.VIEW_OWN_TICKETS,
     AppPermission.CREATE_TICKET,
     AppPermission.VIEW_ALL_TICKETS,
     AppPermission.MANAGE_TICKETS,
+    AppPermission.ESCALATE_TICKETS,
     AppPermission.VIEW_ALL_ASSETS,
     AppPermission.VIEW_MY_ASSETS,
     AppPermission.MANAGE_ASSETS,
@@ -90,7 +106,11 @@ export const ROLE_PERMISSIONS: Record<UserRole, AppPermission[]> = {
     AppPermission.VIEW_ANALYTICS,
     AppPermission.MANAGE_USERS,
     AppPermission.MANAGE_SYSTEM,
-    AppPermission.VIEW_AUDIT_LOGS
+    AppPermission.VIEW_AUDIT_LOGS,
+    AppPermission.MANAGE_ESCALATION_GROUPS,
+    AppPermission.VIEW_ESCALATION_GROUPS,
+    AppPermission.MANAGE_ESCALATION_RULES,
+    AppPermission.VIEW_ESCALATION_RULES
   ]
 };
 
@@ -288,6 +308,7 @@ export interface Ticket {
   updatedAt: number;
   customerId: string;
   assignedAgentId?: string;
+  assignedGroupId?: string; // For Group Assignment
   linkedAssetId?: string;
   messages: Message[];
   customFields?: Record<string, string>;
@@ -308,17 +329,67 @@ export interface Ticket {
   isEscalated?: boolean; // New Flag
 }
 
-// --- Escalation Rules ---
+// --- Escalation & Group Types ---
+
+export enum EscalationGroupType {
+  TECHNICAL = 'TECHNICAL',
+  FUNCTIONAL = 'FUNCTIONAL',
+  HIERARCHICAL = 'HIERARCHICAL',
+  REGIONAL = 'REGIONAL'
+}
+
+export enum EscalationGroupMemberRole {
+  LEAD = 'LEAD',
+  MEMBER = 'MEMBER',
+  BACKUP = 'BACKUP',
+  ESCALATION_POINT = 'ESCALATION_POINT'
+}
+
+export interface EscalationGroup {
+  id: string;
+  name: string;
+  code: string;
+  description?: string;
+  type: EscalationGroupType;
+  category?: Category | string;
+  level: number; // 1, 2, 3
+  
+  // SLA & Ops
+  responseSlaMinutes: number;
+  resolutionSlaMinutes?: number;
+  contactEmail?: string;
+  
+  // Stats
+  activeTickets?: number;
+  assignedTickets?: number;
+  maxConcurrentTickets?: number;
+  
+  autoAssign: boolean;
+  isActive: boolean;
+  availabilitySchedule?: string; // Simple string description for demo
+}
+
+export interface EscalationGroupMember {
+  id: string;
+  groupId: string;
+  userId: string;
+  role: EscalationGroupMemberRole;
+  weeklyCapacityHours: number;
+}
+
 export interface EscalationRule {
   id: string;
   name: string;
+  description?: string;
+  triggerType: 'TIME_BASED' | 'STATUS_BASED' | 'PRIORITY_BASED' | 'MANUAL';
   condition: {
     priority?: Priority;
     category?: Category;
     slaStatus?: 'BREACHED' | 'AT_RISK';
   };
   action: {
-    assignToUserId?: string;
+    targetGroupId?: string; // Assign to Group
+    assignToUserId?: string; // Fallback or direct override
     newPriority?: Priority;
     note: string;
   };

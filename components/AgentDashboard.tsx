@@ -2,6 +2,7 @@ import React from 'react';
 import { TicketList } from './TicketList';
 import { Ticket, TicketStatus, Priority } from '../types';
 import { getCurrentDemandFactor } from '../services/slaService';
+import { useLanguage } from '../context/LanguageContext';
 
 interface AgentDashboardProps {
   tickets: Ticket[];
@@ -10,6 +11,7 @@ interface AgentDashboardProps {
 
 export const AgentDashboard: React.FC<AgentDashboardProps> = ({ tickets, onSelectTicket }) => {
   const demandFactor = getCurrentDemandFactor();
+  const { t } = useLanguage();
   
   const openTickets = tickets.filter(t => t.status !== TicketStatus.CLOSED);
   const criticalTickets = tickets.filter(t => t.priority === Priority.CRITICAL && t.status !== TicketStatus.CLOSED);
@@ -27,11 +29,11 @@ export const AgentDashboard: React.FC<AgentDashboardProps> = ({ tickets, onSelec
     <div className="max-w-7xl mx-auto h-full flex flex-col gap-6">
       <div className="flex justify-between items-end">
           <div>
-              <h2 className="text-3xl font-bold text-slate-900">Agent Command Center</h2>
-              <p className="text-slate-500">Real-time queue monitoring and SLA tracking.</p>
+              <h2 className="text-3xl font-bold text-slate-900">{t('agentCommandCenter')}</h2>
+              <p className="text-slate-500">{t('queueMonitoring')}</p>
           </div>
           <div className="flex items-center space-x-2 bg-white px-4 py-2 rounded-lg shadow-sm border border-slate-200">
-              <span className="text-xs uppercase font-bold text-slate-500">Current Demand</span>
+              <span className="text-xs uppercase font-bold text-slate-500">{t('currentDemand')}</span>
               <div className="h-4 w-px bg-slate-300 mx-2"></div>
               <span className={`text-sm font-bold ${demandFactor > 1.2 ? 'text-red-600' : demandFactor < 1 ? 'text-green-600' : 'text-blue-600'}`}>
                   {demandFactor > 1.2 ? 'High Load' : demandFactor < 1 ? 'Low Load' : 'Normal'} (x{demandFactor})
@@ -44,7 +46,7 @@ export const AgentDashboard: React.FC<AgentDashboardProps> = ({ tickets, onSelec
           <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between">
               <div className="flex justify-between items-start">
                   <div>
-                      <span className="text-xs font-bold text-slate-500 uppercase">My Queue</span>
+                      <span className="text-xs font-bold text-slate-500 uppercase">{t('myQueue')}</span>
                       <div className="text-3xl font-bold text-slate-800 mt-1">{openTickets.length}</div>
                   </div>
                   <div className="p-2 bg-blue-50 rounded-lg">
@@ -59,7 +61,7 @@ export const AgentDashboard: React.FC<AgentDashboardProps> = ({ tickets, onSelec
           <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between">
                <div className="flex justify-between items-start">
                   <div>
-                      <span className="text-xs font-bold text-slate-500 uppercase">Critical</span>
+                      <span className="text-xs font-bold text-slate-500 uppercase">{t('critical')}</span>
                       <div className="text-3xl font-bold text-red-600 mt-1">{criticalTickets.length}</div>
                   </div>
                   <div className="p-2 bg-red-50 rounded-lg animate-pulse">
@@ -71,7 +73,7 @@ export const AgentDashboard: React.FC<AgentDashboardProps> = ({ tickets, onSelec
           <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between">
               <div className="flex justify-between items-start">
                   <div>
-                      <span className="text-xs font-bold text-slate-500 uppercase">SLA Breached</span>
+                      <span className="text-xs font-bold text-slate-500 uppercase">{t('slaBreached')}</span>
                       <div className="text-3xl font-bold text-slate-800 mt-1">{breachedTickets.length}</div>
                   </div>
                   <div className="p-2 bg-slate-100 rounded-lg">
@@ -79,14 +81,14 @@ export const AgentDashboard: React.FC<AgentDashboardProps> = ({ tickets, onSelec
                   </div>
               </div>
                <div className="mt-4 flex items-center text-xs text-red-600 font-medium">
-                   <span className="mr-1">{atRiskTickets.length}</span> tickets at risk
+                   <span className="mr-1">{atRiskTickets.length}</span> {t('ticketsAtRisk')}
                </div>
           </div>
 
           <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between">
               <div className="flex justify-between items-start">
                   <div>
-                      <span className="text-xs font-bold text-slate-500 uppercase">SLA Health</span>
+                      <span className="text-xs font-bold text-slate-500 uppercase">{t('slaHealth')}</span>
                       <div className="text-3xl font-bold text-slate-800 mt-1">94%</div>
                   </div>
                   <div className={`p-2 rounded-lg ${getSLAHealthColor()} bg-opacity-20`}>
@@ -99,11 +101,11 @@ export const AgentDashboard: React.FC<AgentDashboardProps> = ({ tickets, onSelec
 
       <div className="bg-white rounded-xl shadow border border-slate-200 flex-1 overflow-hidden flex flex-col">
           <div className="px-6 py-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
-              <h3 className="font-bold text-slate-800">Active Ticket Queue</h3>
+              <h3 className="font-bold text-slate-800">{t('activeTicketQueue')}</h3>
               <div className="flex space-x-2">
                   <select className="text-sm border-slate-300 rounded-lg focus:ring-indigo-500">
-                      <option>All Priorities</option>
-                      <option>Critical</option>
+                      <option>{t('allPriorities')}</option>
+                      <option>{t('critical')}</option>
                       <option>High</option>
                   </select>
               </div>

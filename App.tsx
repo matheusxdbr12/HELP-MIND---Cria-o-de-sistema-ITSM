@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { TicketForm } from './components/TicketForm';
 import { TicketList } from './components/TicketList';
@@ -13,8 +13,9 @@ import { AgentDashboard } from './components/AgentDashboard';
 import { Login } from './components/auth/Login';
 import { Register } from './components/auth/Register';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { LanguageProvider } from './context/LanguageContext';
 import { getTickets, getTicketById, getAssets, getAssetById } from './services/mockStore';
-import { Ticket, Asset, AppPermission } from './types';
+import { Ticket, Asset, AppPermission, Category, User } from './types';
 
 // Main Application Layout
 const AppLayout: React.FC = () => {
@@ -33,13 +34,45 @@ const AppLayout: React.FC = () => {
     setAssets(getAssets());
   };
 
+  // Helper to determine if a ticket is visible to the current user
+  const checkTicketAccess = useCallback((ticket: Ticket, currentUser: User | null) => {
+      if (!currentUser) return false;
+      if (hasPermission(AppPermission.VIEW_ALL_TICKETS)) return true;
+      if (ticket.customerId === currentUser.id) return true; // Can always see own tickets
+
+      if (hasPermission(AppPermission.VIEW_DEPARTMENT_TICKETS)) {
+          // 1. Directly Assigned
+          if (ticket.assignedAgentId === currentUser.id) return true;
+          
+          // 2. Department Match (Mock Logic)
+          // IT Dept sees Technical & General
+          if (currentUser.departmentId === 'D-IT' && (ticket.category === Category.TECHNICAL || ticket.category === Category.GENERAL)) return true;
+          // Finance Dept sees Finance
+          if (currentUser.departmentId === 'D-FIN' && ticket.category === Category.FINANCE) return true;
+          // Sales Dept sees Sales
+          if (currentUser.departmentId === 'D-SALES' && ticket.category === Category.SALES) return true;
+      }
+      
+      return false;
+  }, [hasPermission]);
+
   useEffect(() => {
     if (isAuthenticated) {
         refreshData();
-        // Redirect if on a restricted view on login
-        if (activeView === 'portal' && hasPermission(AppPermission.VIEW_ALL_TICKETS)) setActiveView('dashboard');
-        else if (activeView === 'dashboard' && !hasPermission(AppPermission.VIEW_ALL_TICKETS)) setActiveView('portal');
-        else if (activeView === 'admin-console' && !hasPermission(AppPermission.MANAGE_SYSTEM)) setActiveView('portal');
+        // Redirect logic based on permissions
+        if (activeView === 'portal') {
+            if (hasPermission(AppPermission.VIEW_ALL_TICKETS) || hasPermission(AppPermission.VIEW_DEPARTMENT_TICKETS)) {
+                setActiveView('dashboard');
+            }
+        } else if (activeView === 'dashboard') {
+            if (!hasPermission(AppPermission.VIEW_ALL_TICKETS) && !hasPermission(AppPermission.VIEW_DEPARTMENT_TICKETS)) {
+                setActiveView('portal');
+            }
+        } else if (activeView === 'admin-console') {
+            if (!hasPermission(AppPermission.MANAGE_SYSTEM) && !hasPermission(AppPermission.MANAGE_USERS)) {
+                setActiveView('portal');
+            }
+        }
     }
   }, [isAuthenticated, user, hasPermission]); // Removed activeView from deps to prevent loop
 
@@ -81,15 +114,18 @@ const AppLayout: React.FC = () => {
   const renderContent = () => {
     // 1. Ticket Detail View
     if (activeView.startsWith('ticket-') && selectedTicketId) {
-      // Permission check could be more granular here (e.g., own vs all)
-      // Logic inside TicketDetail will handle what data to show
       const ticket = getTicketById(selectedTicketId);
       if (ticket) {
+        // Enforce Access Control
+        if (!checkTicketAccess(ticket, user)) {
+             return <div className="p-8 text-center text-red-500 font-bold">Unauthorized: You do not have permission to view this ticket.</div>;
+        }
+
         return (
           <TicketDetail 
             ticket={ticket} 
             currentUser={user!} 
-            onBack={() => setActiveView(hasPermission(AppPermission.VIEW_ALL_TICKETS) ? 'dashboard' : 'my-tickets')}
+            onBack={() => setActiveView((hasPermission(AppPermission.VIEW_ALL_TICKETS) || hasPermission(AppPermission.VIEW_DEPARTMENT_TICKETS)) ? 'dashboard' : 'my-tickets')}
             onUpdate={refreshData}
           />
         );
@@ -98,17 +134,19 @@ const AppLayout: React.FC = () => {
 
     // 2. Asset Detail View
     if (activeView.startsWith('asset-') && selectedAssetId) {
-      if (!hasPermission(AppPermission.VIEW_ALL_ASSETS)) {
-          // Simple fallback for customer assets, though specific perm check is better
-          if (!hasPermission(AppPermission.VIEW_MY_ASSETS)) return <div>Unauthorized</div>;
-      }
-
       const asset = getAssetById(selectedAssetId);
       if (asset) {
+        // Enforce ownership if user cannot view all assets
+        if (!hasPermission(AppPermission.VIEW_ALL_ASSETS)) {
+            if (asset.assignedTo !== user?.id) {
+                return <div className="p-8 text-center text-red-500 font-bold">Unauthorized: You do not have permission to view this asset.</div>;
+            }
+        }
+
         return (
            <AssetDetail 
              asset={asset}
-             onBack={() => setActiveView('assets-inventory')}
+             onBack={() => hasPermission(AppPermission.VIEW_ALL_ASSETS) ? setActiveView('assets-inventory') : setActiveView('my-tickets')}
              onSelectTicket={handleSelectTicket}
            />
         );
@@ -136,8 +174,14 @@ const AppLayout: React.FC = () => {
         );
       
       case 'dashboard':
-        if (!hasPermission(AppPermission.VIEW_ALL_TICKETS)) return <div className="p-8 text-center text-red-500 font-bold">Unauthorized: Agent Access Required</div>;
-        return <AgentDashboard tickets={tickets} onSelectTicket={handleSelectTicket} />;
+        if (!hasPermission(AppPermission.VIEW_ALL_TICKETS) && !hasPermission(AppPermission.VIEW_DEPARTMENT_TICKETS)) {
+            return <div className="p-8 text-center text-red-500 font-bold">Unauthorized: Agent Access Required</div>;
+        }
+        
+        // Filter tickets for Dashboard view
+        const dashboardTickets = tickets.filter(t => checkTicketAccess(t, user));
+        
+        return <AgentDashboard tickets={dashboardTickets} onSelectTicket={handleSelectTicket} />;
       
       case 'assets':
           // The Main Assets View is now the Dashboard
@@ -178,7 +222,7 @@ const AppLayout: React.FC = () => {
           return <AnalyticsDashboard />;
       
       case 'admin-console':
-          if (!hasPermission(AppPermission.MANAGE_SYSTEM)) return <div className="p-8 text-center text-red-500 font-bold">Unauthorized: Super Admin Access Required</div>;
+          if (!hasPermission(AppPermission.MANAGE_SYSTEM) && !hasPermission(AppPermission.MANAGE_USERS)) return <div className="p-8 text-center text-red-500 font-bold">Unauthorized: Admin Access Required</div>;
           return <AdminDashboard />;
       
       default:
@@ -217,9 +261,11 @@ const AppLayout: React.FC = () => {
 // Root Component wrapping Context
 const App: React.FC = () => {
     return (
-        <AuthProvider>
-            <AppLayout />
-        </AuthProvider>
+        <LanguageProvider>
+            <AuthProvider>
+                <AppLayout />
+            </AuthProvider>
+        </LanguageProvider>
     );
 }
 

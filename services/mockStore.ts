@@ -1,4 +1,4 @@
-import { Ticket, User, TicketStatus, Priority, Category, Sentiment, Message, Asset, AssetType, AssetStatus, AgentScore, Brand, Model, Department, AssetCondition, Feedback, AssetReport, AuditLog, SystemConfig, SystemHealth, EscalationRule, AssetCategory, AssetSubcategory } from "../types";
+import { Ticket, User, TicketStatus, Priority, Category, Sentiment, Message, Asset, AssetType, AssetStatus, AgentScore, Brand, Model, Department, AssetCondition, Feedback, AssetReport, AuditLog, SystemConfig, SystemHealth, EscalationRule, AssetCategory, AssetSubcategory, EscalationGroup, EscalationGroupMember, EscalationGroupType, EscalationGroupMemberRole } from "../types";
 import { calculateSLADeadline, getSLAStatus } from "./slaService";
 
 // --- Registries ---
@@ -92,21 +92,98 @@ export let USERS: Record<string, User> = {
   }
 };
 
-// --- Escalation Rules Store ---
+// --- Escalation Data Stores ---
+
+let escalationGroups: EscalationGroup[] = [
+    {
+        id: 'G-L1-NET',
+        name: 'L1 Network Ops',
+        code: 'ESC-NET-01',
+        description: 'First line response for all network connectivity, VPN, and wifi issues.',
+        type: EscalationGroupType.TECHNICAL,
+        category: 'Network',
+        level: 1,
+        responseSlaMinutes: 30,
+        resolutionSlaMinutes: 120,
+        autoAssign: true,
+        isActive: true,
+        contactEmail: 'netops-l1@helpmind.com',
+        activeTickets: 5,
+        maxConcurrentTickets: 20,
+        availabilitySchedule: '24/7 Shift'
+    },
+    {
+        id: 'G-L2-SEC',
+        name: 'L2 Security SOC',
+        code: 'ESC-SEC-02',
+        description: 'Advanced investigation for security incidents, breaches, and access control.',
+        type: EscalationGroupType.TECHNICAL,
+        category: 'Security',
+        level: 2,
+        responseSlaMinutes: 15,
+        resolutionSlaMinutes: 60,
+        autoAssign: false,
+        isActive: true,
+        contactEmail: 'soc@helpmind.com',
+        activeTickets: 2,
+        maxConcurrentTickets: 10,
+        availabilitySchedule: 'Business Hours'
+    },
+    {
+        id: 'G-MGR-GEN',
+        name: 'Management Oversight',
+        code: 'ESC-MGR-01',
+        description: 'Escalation point for critical business complaints and SLA breaches.',
+        type: EscalationGroupType.HIERARCHICAL,
+        level: 3,
+        responseSlaMinutes: 120,
+        resolutionSlaMinutes: 480,
+        autoAssign: true,
+        isActive: true,
+        activeTickets: 1,
+        maxConcurrentTickets: 5,
+        availabilitySchedule: 'Business Hours'
+    },
+    {
+        id: 'G-REG-EU',
+        name: 'EMEA Regional Support',
+        code: 'ESC-REG-EU',
+        description: 'Localized support for European offices covering multiple technical domains.',
+        type: EscalationGroupType.REGIONAL,
+        level: 1,
+        responseSlaMinutes: 60,
+        autoAssign: true,
+        isActive: true,
+        activeTickets: 8,
+        maxConcurrentTickets: 50,
+        availabilitySchedule: 'CET 9-5'
+    }
+];
+
+let escalationMembers: EscalationGroupMember[] = [
+    { id: 'GM-1', groupId: 'G-L1-NET', userId: 'agent1', role: EscalationGroupMemberRole.LEAD, weeklyCapacityHours: 40 },
+    { id: 'GM-2', groupId: 'G-MGR-GEN', userId: 'manager1', role: EscalationGroupMemberRole.LEAD, weeklyCapacityHours: 20 },
+    { id: 'GM-3', groupId: 'G-L1-NET', userId: 'agent2', role: EscalationGroupMemberRole.MEMBER, weeklyCapacityHours: 35 },
+];
+
 let escalationRules: EscalationRule[] = [
     {
         id: 'rule-1',
         name: 'Critical Breach -> Admin',
+        description: 'Automatically route tickets that have breached SLA and are Critical priority to Admin.',
+        triggerType: 'TIME_BASED',
         isActive: true,
         condition: { priority: Priority.CRITICAL, slaStatus: 'BREACHED' },
         action: { assignToUserId: 'admin1', note: 'Escalated to Admin due to Critical SLA Breach' }
     },
     {
         id: 'rule-2',
-        name: 'High Priority Tech -> Manager',
+        name: 'High Priority Tech -> Network L1',
+        description: 'Route high priority technical issues to the Network L1 team immediately.',
+        triggerType: 'PRIORITY_BASED',
         isActive: true,
-        condition: { priority: Priority.HIGH, category: Category.TECHNICAL, slaStatus: 'BREACHED' },
-        action: { assignToUserId: 'manager1', note: 'Escalated to Ops Manager due to High Priority Tech breach.' }
+        condition: { priority: Priority.HIGH, category: Category.TECHNICAL },
+        action: { targetGroupId: 'G-L1-NET', note: 'Escalated to Network Ops due to High Priority Tech issue.' }
     }
 ];
 
@@ -434,9 +511,11 @@ export const getSystemHealth = (): SystemHealth => {
     };
 }
 
-// --- Escalation Rule Logic ---
+// --- Escalation Rule & Group Logic ---
 
 export const getEscalationRules = () => [...escalationRules];
+export const getEscalationGroups = () => [...escalationGroups];
+export const getEscalationGroupMembers = (groupId: string) => escalationMembers.filter(m => m.groupId === groupId);
 
 export const addEscalationRule = (rule: Omit<EscalationRule, 'id'>) => {
     const newRule = { ...rule, id: `rule-${Date.now()}` };
@@ -448,13 +527,30 @@ export const deleteEscalationRule = (id: string) => {
     escalationRules = escalationRules.filter(r => r.id !== id);
 };
 
+export const addEscalationGroup = (group: Omit<EscalationGroup, 'id'>) => {
+    const newGroup = { ...group, id: `G-${Date.now()}` };
+    escalationGroups = [...escalationGroups, newGroup];
+    return newGroup;
+};
+
+export const addEscalationGroupMember = (member: Omit<EscalationGroupMember, 'id'>) => {
+    const newMember = { ...member, id: `GM-${Date.now()}` };
+    escalationMembers = [...escalationMembers, newMember];
+    return newMember;
+};
+
+export const removeEscalationGroupMember = (id: string) => {
+    escalationMembers = escalationMembers.filter(m => m.id !== id);
+}
+
+// Updated Escalation Job Logic
 export const runEscalationJob = (actorId: string): number => {
     let escalationCount = 0;
     const now = Date.now();
 
     tickets = tickets.map(ticket => {
         if (ticket.status === TicketStatus.CLOSED || ticket.status === TicketStatus.RESOLVED) return ticket;
-        if (ticket.isEscalated) return ticket; // Already escalated, skip (for simplicity of demo)
+        if (ticket.isEscalated) return ticket; // Already escalated
 
         // Calculate fresh SLA status
         const slaStatus = getSLAStatus(ticket);
@@ -477,6 +573,25 @@ export const runEscalationJob = (actorId: string): number => {
 
         if (rule) {
             escalationCount++;
+            let assignedUserId = rule.action.assignToUserId;
+            let assignedGroupId = rule.action.targetGroupId;
+            let actionNote = `Reason: ${rule.action.note}`;
+
+            // Automatic Round Robin if routed to group
+            if (assignedGroupId && !assignedUserId) {
+                const group = escalationGroups.find(g => g.id === assignedGroupId);
+                if (group && group.autoAssign) {
+                    const members = escalationMembers.filter(m => m.groupId === assignedGroupId);
+                    if (members.length > 0) {
+                        // Simple Random Load Balancing for demo
+                        const randomMember = members[Math.floor(Math.random() * members.length)];
+                        assignedUserId = randomMember.userId;
+                        actionNote += `\nAuto-assigned to ${USERS[assignedUserId]?.name} in ${group.name}`;
+                    } else {
+                        actionNote += `\nAssigned to group ${group.name} (No active members available)`;
+                    }
+                }
+            }
             
             // Create Audit Log
             logAdminAction('system', 'AUTO_ESCALATION', ticket.id, `Escalated via Rule: ${rule.name}`, 'WARNING');
@@ -487,7 +602,7 @@ export const runEscalationJob = (actorId: string): number => {
                 ticketId: ticket.id,
                 senderId: 'system',
                 senderName: 'System Escalation Bot',
-                content: `⚡ TICKET ESCALATED ⚡\nReason: ${rule.action.note}\nAction: ${rule.action.assignToUserId ? `Reassigned to ${USERS[rule.action.assignToUserId]?.name}` : 'No reassignment'}.`,
+                content: `⚡ TICKET ESCALATED ⚡\n${actionNote}`,
                 timestamp: now,
                 isInternal: true
             };
@@ -495,7 +610,8 @@ export const runEscalationJob = (actorId: string): number => {
             return {
                 ...ticket,
                 isEscalated: true,
-                assignedAgentId: rule.action.assignToUserId || ticket.assignedAgentId,
+                assignedAgentId: assignedUserId || ticket.assignedAgentId,
+                assignedGroupId: assignedGroupId,
                 priority: rule.action.newPriority || ticket.priority,
                 messages: [...ticket.messages, sysMessage],
                 updatedAt: now

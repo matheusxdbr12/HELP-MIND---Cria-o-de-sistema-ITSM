@@ -1,6 +1,9 @@
 import React, { useState, useMemo } from 'react';
-import { Asset, AssetStatus, AssetCondition } from '../types';
+import { Asset, AssetStatus, AssetCondition, AppPermission } from '../types';
 import { getAssetWithDetails, getAssetCategories } from '../services/mockStore';
+import { AssetImportExport } from './AssetImportExport';
+import { AssetFilterPanel } from './AssetFilterPanel';
+import { useAuth } from '../context/AuthContext';
 
 interface AssetListProps {
   assets: Asset[];
@@ -20,30 +23,57 @@ const ICONS: Record<string, React.ReactElement> = {
 };
 
 export const AssetList: React.FC<AssetListProps> = ({ assets, onSelectAsset }) => {
-  const [filterCategory, setFilterCategory] = useState('');
-  const [filterStatus, setFilterStatus] = useState('');
+  const { hasPermission } = useAuth();
   const [search, setSearch] = useState('');
+  const [showImportExport, setShowImportExport] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
+
+  // Advanced Filters State
+  const [filters, setFilters] = useState({
+      categories: [] as string[],
+      statuses: [] as string[],
+      conditions: [] as string[],
+      brands: [] as string[],
+      priceRange: [0, 10000] as [number, number],
+      location: ''
+  });
 
   const categories = getAssetCategories();
   
+  // Extract unique locations for filter dropdown
+  const uniqueLocations = useMemo(() => {
+      const locs = new Set<string>();
+      assets.forEach(a => { if(a.location) locs.add(a.location) });
+      return Array.from(locs);
+  }, [assets]);
+
   const filteredAssets = useMemo(() => {
     return assets.map(a => getAssetWithDetails(a)).filter(asset => {
-        if (filterCategory && asset.categoryId !== filterCategory) return false;
-        if (filterStatus && asset.status !== filterStatus) return false;
+        // Search Filter
         if (search) {
             const term = search.toLowerCase();
-            return (
+            const matchesSearch = (
                 asset.name.toLowerCase().includes(term) ||
                 asset.assetCode.toLowerCase().includes(term) ||
                 asset.serialNumber.toLowerCase().includes(term) ||
                 asset.modelName?.toLowerCase().includes(term)
             );
+            if (!matchesSearch) return false;
         }
+
+        // Advanced Filters
+        if (filters.categories.length > 0 && !filters.categories.includes(asset.categoryId)) return false;
+        if (filters.statuses.length > 0 && !filters.statuses.includes(asset.status)) return false;
+        if (filters.conditions.length > 0 && !filters.conditions.includes(asset.condition)) return false;
+        if (filters.brands.length > 0 && !filters.brands.includes(asset.brandId)) return false;
+        if (filters.location && asset.location !== filters.location) return false;
+
         return true;
     });
-  }, [assets, filterCategory, filterStatus, search]);
+  }, [assets, search, filters]);
 
   const totalValue = filteredAssets.reduce((acc, a) => acc + a.purchaseCost, 0);
+  const activeFilterCount = filters.categories.length + filters.statuses.length + filters.conditions.length + filters.brands.length + (filters.location ? 1 : 0);
 
   // Helper to map DB values to CSS classes for badges
   const getCategoryClass = (icon: string) => {
@@ -60,40 +90,53 @@ export const AssetList: React.FC<AssetListProps> = ({ assets, onSelectAsset }) =
   };
 
   return (
-    <div className="space-y-4 animate-fade-in">
+    <div className="space-y-4 animate-fade-in relative">
+        {/* Modals & Panels */}
+        {showImportExport && <AssetImportExport onClose={() => setShowImportExport(false)} onImportComplete={() => window.location.reload()} />} {/* Simple reload for mock refresh */}
+        <AssetFilterPanel 
+            isOpen={showFilters} 
+            onClose={() => setShowFilters(false)} 
+            filters={filters} 
+            onFilterChange={setFilters} 
+            locations={uniqueLocations}
+        />
+
         {/* Filters Header */}
         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-wrap gap-4 items-center justify-between">
-            <div className="flex gap-4 flex-1">
-                 <div className="relative max-w-xs w-full">
+            <div className="flex gap-3 flex-1 items-center">
+                 <div className="relative max-w-md w-full">
                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                          <svg className="h-5 w-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
                      </div>
                      <input
                          type="text"
                          className="block w-full pl-10 pr-3 py-2 border border-slate-300 rounded-lg leading-5 bg-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                         placeholder="Search assets..."
+                         placeholder="Search by name, serial, or tag..."
                          value={search}
                          onChange={(e) => setSearch(e.target.value)}
                      />
                  </div>
                  
-                 <select 
-                    className="block w-40 pl-3 pr-10 py-2 text-base border-slate-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-lg border bg-white"
-                    value={filterCategory}
-                    onChange={(e) => setFilterCategory(e.target.value)}
+                 <button 
+                    onClick={() => setShowFilters(!showFilters)}
+                    className={`flex items-center px-4 py-2 border rounded-lg text-sm font-medium transition-colors ${activeFilterCount > 0 ? 'bg-indigo-50 border-indigo-200 text-indigo-700' : 'bg-white border-slate-300 text-slate-700 hover:bg-slate-50'}`}
                  >
-                     <option value="">All Categories</option>
-                     {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                 </select>
+                     <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" /></svg>
+                     Filters
+                     {activeFilterCount > 0 && <span className="ml-2 bg-indigo-600 text-white text-[10px] px-1.5 py-0.5 rounded-full">{activeFilterCount}</span>}
+                 </button>
 
-                 <select 
-                    className="block w-40 pl-3 pr-10 py-2 text-base border-slate-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-lg border bg-white"
-                    value={filterStatus}
-                    onChange={(e) => setFilterStatus(e.target.value)}
-                 >
-                     <option value="">All Statuses</option>
-                     {Object.values(AssetStatus).map(s => <option key={s} value={s}>{s}</option>)}
-                 </select>
+                 <div className="h-8 w-px bg-slate-200 mx-1"></div>
+
+                 {hasPermission(AppPermission.MANAGE_ASSETS) && (
+                     <button 
+                        onClick={() => setShowImportExport(true)}
+                        className="flex items-center px-3 py-2 text-slate-500 hover:text-indigo-600 transition-colors text-sm font-medium"
+                     >
+                         <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
+                         Import/Export
+                     </button>
+                 )}
             </div>
             
             <div className="flex items-center space-x-4 text-sm text-slate-500">

@@ -1,6 +1,8 @@
 import React from 'react';
-import { Ticket, TicketStatus, Priority, Category } from '../types';
+import { Ticket, TicketStatus, Priority, AppPermission } from '../types';
 import { formatTimeRemaining } from '../services/slaService';
+import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
 
 interface TicketListProps {
   tickets: Ticket[];
@@ -27,20 +29,24 @@ const getPriorityColor = (priority: Priority) => {
     }
 };
 
-export const TicketList: React.FC<TicketListProps> = ({ tickets, onSelectTicket, role }) => {
+export const TicketList: React.FC<TicketListProps> = ({ tickets, onSelectTicket }) => {
+  const { hasPermission } = useAuth();
+  const { t } = useLanguage();
+  const showSLA = hasPermission(AppPermission.VIEW_ALL_TICKETS) || hasPermission(AppPermission.VIEW_DEPARTMENT_TICKETS);
+
   return (
     <div className="bg-white rounded-xl shadow border border-slate-200 overflow-hidden">
       <div className="overflow-x-auto">
         <table className="w-full text-left">
           <thead className="bg-slate-50 border-b border-slate-200">
             <tr>
-              <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">ID</th>
-              <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Subject</th>
-              <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Category</th>
-              <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Status</th>
-              <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Priority</th>
-              {role === 'AGENT' && <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">SLA Target</th>}
-              <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Created</th>
+              <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('id')}</th>
+              <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('subject')}</th>
+              <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('category')}</th>
+              <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('status')}</th>
+              <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('priority')}</th>
+              {showSLA && <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('slaTarget')}</th>}
+              <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('created')}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
@@ -62,7 +68,7 @@ export const TicketList: React.FC<TicketListProps> = ({ tickets, onSelectTicket,
                 </td>
                 <td className={`px-6 py-4 text-sm ${getPriorityColor(ticket.priority)}`}>{ticket.priority}</td>
                 
-                {role === 'AGENT' && (
+                {showSLA && (
                     <td className="px-6 py-4">
                         {ticket.status !== TicketStatus.CLOSED && ticket.status !== TicketStatus.RESOLVED ? (
                              <div className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-mono font-medium ${
@@ -86,8 +92,8 @@ export const TicketList: React.FC<TicketListProps> = ({ tickets, onSelectTicket,
             ))}
             {tickets.length === 0 && (
                 <tr>
-                    <td colSpan={role === 'AGENT' ? 7 : 6} className="px-6 py-12 text-center text-slate-500">
-                        No tickets found.
+                    <td colSpan={showSLA ? 7 : 6} className="px-6 py-12 text-center text-slate-500">
+                        {t('noTicketsFound')}
                     </td>
                 </tr>
             )}

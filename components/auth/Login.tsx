@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { useLanguage } from '../../context/LanguageContext';
 
 interface LoginProps {
     onSwitchToRegister: () => void;
@@ -7,6 +8,7 @@ interface LoginProps {
 
 export const Login: React.FC<LoginProps> = ({ onSwitchToRegister }) => {
     const { login } = useAuth();
+    const { t, language, setLanguage } = useLanguage();
     const [email, setEmail] = useState('alice@company.com');
     const [password, setPassword] = useState('password');
     const [error, setError] = useState('');
@@ -19,7 +21,7 @@ export const Login: React.FC<LoginProps> = ({ onSwitchToRegister }) => {
         try {
             await login(email, password);
         } catch (err) {
-            setError('Invalid email or password');
+            setError(t('invalidCredentials'));
         } finally {
             setIsLoading(false);
         }
@@ -27,11 +29,26 @@ export const Login: React.FC<LoginProps> = ({ onSwitchToRegister }) => {
 
     return (
         <div className="min-h-screen bg-slate-100 flex items-center justify-center p-4">
+            <div className="absolute top-4 right-4 flex space-x-2">
+                <button 
+                    onClick={() => setLanguage('en')}
+                    className={`px-3 py-1 rounded text-sm font-medium ${language === 'en' ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 border'}`}
+                >
+                    EN
+                </button>
+                <button 
+                    onClick={() => setLanguage('pt')}
+                    className={`px-3 py-1 rounded text-sm font-medium ${language === 'pt' ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 border'}`}
+                >
+                    PT
+                </button>
+            </div>
+
             <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden">
                 <div className="p-8 bg-slate-900 text-white text-center">
                     <div className="w-12 h-12 bg-indigo-500 rounded-lg flex items-center justify-center font-bold text-xl mx-auto mb-4">HM</div>
-                    <h1 className="text-2xl font-bold">Welcome Back</h1>
-                    <p className="text-slate-400 mt-2 text-sm">Sign in to HelpMind Intelligent Support</p>
+                    <h1 className="text-2xl font-bold">{t('welcomeBack')}</h1>
+                    <p className="text-slate-400 mt-2 text-sm">{t('signInSubtitle')}</p>
                 </div>
                 
                 <div className="p-8">
@@ -44,7 +61,7 @@ export const Login: React.FC<LoginProps> = ({ onSwitchToRegister }) => {
 
                     <form onSubmit={handleSubmit} className="space-y-4">
                         <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1">Work Email</label>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">{t('workEmail')}</label>
                             <input 
                                 type="email" 
                                 required
@@ -55,7 +72,7 @@ export const Login: React.FC<LoginProps> = ({ onSwitchToRegister }) => {
                             />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1">Password</label>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">{t('password')}</label>
                             <input 
                                 type="password" 
                                 required
@@ -71,18 +88,18 @@ export const Login: React.FC<LoginProps> = ({ onSwitchToRegister }) => {
                             disabled={isLoading}
                             className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg transition-colors shadow-lg shadow-indigo-200 disabled:opacity-70"
                         >
-                            {isLoading ? 'Signing In...' : 'Sign In'}
+                            {isLoading ? t('signingIn') : t('signIn')}
                         </button>
                     </form>
 
                     <div className="mt-6 text-center text-sm text-slate-500">
-                        Don't have an account? 
-                        <button onClick={onSwitchToRegister} className="text-indigo-600 font-bold ml-1 hover:underline">Register Now</button>
+                        {t('dontHaveAccount')} 
+                        <button onClick={onSwitchToRegister} className="text-indigo-600 font-bold ml-1 hover:underline">{t('registerNow')}</button>
                     </div>
 
                     <div className="mt-8 pt-6 border-t border-slate-100">
                         <p className="text-xs text-center text-slate-400">
-                            Demo Credentials:<br/>
+                            {t('demoCredentials')}:<br/>
                             Customer: alice@company.com<br/>
                             Agent: bob@helpmind.com<br/>
                             Admin: admin@helpmind.com<br/>

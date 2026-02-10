@@ -1,5 +1,6 @@
 import React from 'react';
 import { getAssetStats, getRecentAssetActivity } from '../services/mockStore';
+import { useLanguage } from '../context/LanguageContext';
 
 interface AssetDashboardProps {
     onNavigateToInventory: () => void;
@@ -9,6 +10,7 @@ interface AssetDashboardProps {
 export const AssetDashboard: React.FC<AssetDashboardProps> = ({ onNavigateToInventory, onNavigateToNewAsset }) => {
     const stats = getAssetStats();
     const activity = getRecentAssetActivity();
+    const { t } = useLanguage();
 
     // Helper for pie chart gradient
     const generatePieGradient = (data: Record<string, number>) => {
@@ -33,16 +35,16 @@ export const AssetDashboard: React.FC<AssetDashboardProps> = ({ onNavigateToInve
             {/* Header */}
             <div className="flex justify-between items-center">
                 <div>
-                    <h1 className="text-2xl font-bold text-slate-900">Asset Management Dashboard</h1>
-                    <p className="text-slate-500">Overview of hardware, software, and allocation metrics.</p>
+                    <h1 className="text-2xl font-bold text-slate-900">{t('assetManagement')}</h1>
+                    <p className="text-slate-500">{t('assetOverview')}</p>
                 </div>
                 <div className="flex gap-3">
                     <button onClick={onNavigateToNewAsset} className="bg-indigo-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-indigo-700 transition-colors shadow-sm flex items-center">
                         <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
-                        New Asset
+                        {t('newAsset')}
                     </button>
                     <button onClick={onNavigateToInventory} className="bg-white text-slate-700 border border-slate-300 px-4 py-2 rounded-lg font-medium hover:bg-slate-50 transition-colors shadow-sm">
-                        View Inventory
+                        {t('viewInventory')}
                     </button>
                 </div>
             </div>
@@ -51,7 +53,7 @@ export const AssetDashboard: React.FC<AssetDashboardProps> = ({ onNavigateToInve
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                 <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
                     <div>
-                        <p className="text-xs font-bold text-slate-500 uppercase tracking-wide">Total Assets</p>
+                        <p className="text-xs font-bold text-slate-500 uppercase tracking-wide">{t('totalAssets')}</p>
                         <p className="text-3xl font-bold text-slate-900 mt-1">{stats.totalAssets}</p>
                         <p className="text-xs text-green-600 mt-1 flex items-center">
                             <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>
@@ -65,9 +67,9 @@ export const AssetDashboard: React.FC<AssetDashboardProps> = ({ onNavigateToInve
 
                 <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
                     <div>
-                        <p className="text-xs font-bold text-slate-500 uppercase tracking-wide">Assigned Ratio</p>
+                        <p className="text-xs font-bold text-slate-500 uppercase tracking-wide">{t('assignedRatio')}</p>
                         <p className="text-3xl font-bold text-slate-900 mt-1">{Math.round((stats.assignedCount / stats.totalAssets) * 100)}%</p>
-                        <p className="text-xs text-slate-500 mt-1">{stats.assignedCount} in use</p>
+                        <p className="text-xs text-slate-500 mt-1">{stats.assignedCount} {t('inUse')}</p>
                     </div>
                     <div className="p-3 bg-green-50 rounded-full text-green-600">
                         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
@@ -76,9 +78,9 @@ export const AssetDashboard: React.FC<AssetDashboardProps> = ({ onNavigateToInve
 
                 <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
                     <div>
-                        <p className="text-xs font-bold text-slate-500 uppercase tracking-wide">In Maintenance</p>
+                        <p className="text-xs font-bold text-slate-500 uppercase tracking-wide">{t('inMaintenance')}</p>
                         <p className="text-3xl font-bold text-slate-900 mt-1">{stats.maintenanceCount}</p>
-                        <p className="text-xs text-orange-600 mt-1">Requires Action</p>
+                        <p className="text-xs text-orange-600 mt-1">{t('requiresAction')}</p>
                     </div>
                     <div className="p-3 bg-orange-50 rounded-full text-orange-600">
                         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
@@ -87,9 +89,9 @@ export const AssetDashboard: React.FC<AssetDashboardProps> = ({ onNavigateToInve
 
                 <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
                     <div>
-                        <p className="text-xs font-bold text-slate-500 uppercase tracking-wide">Warranty Alerts</p>
+                        <p className="text-xs font-bold text-slate-500 uppercase tracking-wide">{t('warrantyAlerts')}</p>
                         <p className="text-3xl font-bold text-slate-900 mt-1">{stats.expiringCount}</p>
-                        <p className="text-xs text-red-600 mt-1">Expiring in 90 days</p>
+                        <p className="text-xs text-red-600 mt-1">{t('expiringSoon')}</p>
                     </div>
                     <div className="p-3 bg-red-50 rounded-full text-red-600">
                         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
@@ -106,7 +108,7 @@ export const AssetDashboard: React.FC<AssetDashboardProps> = ({ onNavigateToInve
                     {/* Category Distribution */}
                     <div className="bg-white rounded-xl shadow border border-slate-200 p-6">
                         <div className="flex justify-between items-center mb-6">
-                            <h3 className="font-bold text-slate-800">Asset Distribution</h3>
+                            <h3 className="font-bold text-slate-800">{t('assetDistribution')}</h3>
                             <button className="text-sm text-indigo-600 font-medium hover:text-indigo-800">View Report</button>
                         </div>
                         <div className="flex items-center justify-center space-x-12">
@@ -136,7 +138,7 @@ export const AssetDashboard: React.FC<AssetDashboardProps> = ({ onNavigateToInve
 
                     {/* Recent Activity Timeline */}
                     <div className="bg-white rounded-xl shadow border border-slate-200 p-6">
-                        <h3 className="font-bold text-slate-800 mb-4">Recent Activity</h3>
+                        <h3 className="font-bold text-slate-800 mb-4">{t('recentActivity')}</h3>
                         <div className="space-y-0">
                             {activity.map((item, idx) => (
                                 <div key={item.id} className="flex space-x-4 pb-4 last:pb-0 relative">
@@ -165,7 +167,7 @@ export const AssetDashboard: React.FC<AssetDashboardProps> = ({ onNavigateToInve
                 {/* Right Column: Status & Value */}
                 <div className="space-y-6">
                     <div className="bg-white rounded-xl shadow border border-slate-200 p-6">
-                        <h3 className="font-bold text-slate-800 mb-4">Status Overview</h3>
+                        <h3 className="font-bold text-slate-800 mb-4">{t('statusOverview')}</h3>
                         <div className="space-y-4">
                             {Object.entries(stats.statusCounts).map(([status, count]) => {
                                 const max = Math.max(...Object.values(stats.statusCounts) as number[]);
@@ -193,13 +195,13 @@ export const AssetDashboard: React.FC<AssetDashboardProps> = ({ onNavigateToInve
                     </div>
 
                     <div className="bg-slate-900 rounded-xl shadow p-6 text-white">
-                        <h3 className="font-bold text-slate-100 mb-2">Total Asset Value</h3>
+                        <h3 className="font-bold text-slate-100 mb-2">{t('totalAssetValue')}</h3>
                         <div className="text-4xl font-bold text-white mb-1">${stats.totalValue.toLocaleString()}</div>
-                        <p className="text-xs text-slate-400 opacity-80">Estimated current value based on purchase cost.</p>
+                        <p className="text-xs text-slate-400 opacity-80">{t('estimatedValue')}</p>
                         
                         <div className="mt-6 pt-6 border-t border-slate-800">
                             <div className="flex justify-between items-center text-sm">
-                                <span className="text-slate-400">Next Audit</span>
+                                <span className="text-slate-400">{t('nextAudit')}</span>
                                 <span className="font-mono text-indigo-400">Oct 15, 2024</span>
                             </div>
                         </div>

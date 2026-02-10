@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { analyzeNewTicket, predictLinkedAsset, analyzeIntakeRisk } from '../services/geminiService';
 import { addTicket, getUserAssets, getDynamicFieldsForCategory } from '../services/mockStore';
 import { Category, Priority, Sentiment, Ticket, TicketStatus, Asset } from '../types';
+import { useLanguage } from '../context/LanguageContext';
 
 interface TicketFormProps {
   onTicketCreated: () => void;
@@ -9,6 +10,7 @@ interface TicketFormProps {
 }
 
 export const TicketForm: React.FC<TicketFormProps> = ({ onTicketCreated, currentUser }) => {
+  const { t } = useLanguage();
   // Wizard State
   const [step, setStep] = useState<1 | 2 | 3>(1);
   
@@ -106,21 +108,21 @@ export const TicketForm: React.FC<TicketFormProps> = ({ onTicketCreated, current
   const renderStep1 = () => (
       <div className="space-y-6 animate-fade-in">
         <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">What can we help you with?</label>
+            <label className="block text-sm font-medium text-slate-700 mb-1">{t('howCanWeHelp')}</label>
             <input
               type="text"
               className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all text-lg"
-              placeholder="e.g., VPN connection failed"
+              placeholder={t('placeholderTitle')}
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               autoFocus
             />
         </div>
         <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Details</label>
+            <label className="block text-sm font-medium text-slate-700 mb-1">{t('details')}</label>
             <textarea
               className="w-full h-32 px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all resize-none"
-              placeholder="Describe what happened..."
+              placeholder={t('describeIssue')}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
             />
@@ -130,17 +132,17 @@ export const TicketForm: React.FC<TicketFormProps> = ({ onTicketCreated, current
         {isAnalyzing ? (
              <div className="flex items-center space-x-2 text-indigo-600 bg-indigo-50 p-3 rounded-lg">
                  <div className="w-4 h-4 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
-                 <span className="text-sm font-medium">Analyzing request context...</span>
+                 <span className="text-sm font-medium">{t('analyzing')}</span>
              </div>
         ) : analysis && (
             <div className="bg-slate-50 rounded-lg p-4 border border-slate-200 flex justify-between items-center">
                 <div>
-                    <span className="text-xs text-slate-500 uppercase font-bold">Category Detected</span>
+                    <span className="text-xs text-slate-500 uppercase font-bold">{t('categoryDetected')}</span>
                     <p className="text-indigo-700 font-bold">{analysis.category}</p>
                 </div>
                  {suggestedAsset && (
                      <div className="text-right">
-                        <span className="text-xs text-slate-500 uppercase font-bold">Linked Asset</span>
+                        <span className="text-xs text-slate-500 uppercase font-bold">{t('linkedAsset')}</span>
                         <p className="text-slate-800 font-medium text-sm">{suggestedAsset.name}</p>
                      </div>
                  )}
@@ -153,7 +155,7 @@ export const TicketForm: React.FC<TicketFormProps> = ({ onTicketCreated, current
                 disabled={!title || !description || isAnalyzing}
                 className="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition-colors"
             >
-                Continue
+                {t('continue')}
             </button>
         </div>
       </div>
@@ -165,8 +167,8 @@ export const TicketForm: React.FC<TicketFormProps> = ({ onTicketCreated, current
       return (
           <div className="space-y-6 animate-fade-in">
               <div className="bg-blue-50 p-4 rounded-lg border border-blue-100 mb-6">
-                  <h3 className="text-blue-800 font-bold text-sm mb-1">Additional Information Required</h3>
-                  <p className="text-blue-600 text-xs">Based on your request type <span className="font-bold">({analysis?.category})</span>, we need a few more details to route this correctly.</p>
+                  <h3 className="text-blue-800 font-bold text-sm mb-1">{t('additionalInfo')}</h3>
+                  <p className="text-blue-600 text-xs">{t('additionalInfoDesc')} <span className="font-bold">({analysis?.category})</span>.</p>
               </div>
 
               {fields.length > 0 ? (
@@ -207,8 +209,8 @@ export const TicketForm: React.FC<TicketFormProps> = ({ onTicketCreated, current
               )}
 
               <div className="flex justify-between pt-4">
-                  <button onClick={() => setStep(1)} className="text-slate-500 hover:text-slate-700">Back</button>
-                  <button onClick={handleNextStep} className="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">Review</button>
+                  <button onClick={() => setStep(1)} className="text-slate-500 hover:text-slate-700">{t('back')}</button>
+                  <button onClick={handleNextStep} className="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">{t('review')}</button>
               </div>
           </div>
       )
@@ -218,24 +220,24 @@ export const TicketForm: React.FC<TicketFormProps> = ({ onTicketCreated, current
       <div className="space-y-6 animate-fade-in">
           <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
               <div className="bg-slate-50 px-6 py-4 border-b border-slate-200">
-                  <h3 className="font-bold text-slate-800">Review Ticket</h3>
+                  <h3 className="font-bold text-slate-800">{t('reviewTicket')}</h3>
               </div>
               <div className="p-6 space-y-4">
                   <div>
-                      <span className="text-xs text-slate-500 uppercase font-bold">Subject</span>
+                      <span className="text-xs text-slate-500 uppercase font-bold">{t('subject')}</span>
                       <p className="text-slate-900 font-medium">{title}</p>
                   </div>
                   <div>
-                      <span className="text-xs text-slate-500 uppercase font-bold">Description</span>
+                      <span className="text-xs text-slate-500 uppercase font-bold">{t('description')}</span>
                       <p className="text-slate-700 text-sm">{description}</p>
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                       <div>
-                          <span className="text-xs text-slate-500 uppercase font-bold">Category</span>
+                          <span className="text-xs text-slate-500 uppercase font-bold">{t('category')}</span>
                           <p className="text-indigo-600 font-bold">{analysis?.category}</p>
                       </div>
                       <div>
-                          <span className="text-xs text-slate-500 uppercase font-bold">Priority</span>
+                          <span className="text-xs text-slate-500 uppercase font-bold">{t('priority')}</span>
                           <p className={`font-bold ${analysis?.priority === 'Critical' ? 'text-red-600' : 'text-slate-700'}`}>{analysis?.priority}</p>
                       </div>
                   </div>
@@ -267,9 +269,9 @@ export const TicketForm: React.FC<TicketFormProps> = ({ onTicketCreated, current
           )}
 
           <div className="flex justify-between pt-4">
-              <button onClick={() => setStep(2)} className="text-slate-500 hover:text-slate-700">Back</button>
+              <button onClick={() => setStep(2)} className="text-slate-500 hover:text-slate-700">{t('back')}</button>
               <button onClick={handleSubmit} className="px-8 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-bold shadow-sm">
-                  Create Ticket
+                  {t('createTicket')}
               </button>
           </div>
       </div>
@@ -298,7 +300,7 @@ export const TicketForm: React.FC<TicketFormProps> = ({ onTicketCreated, current
 
       <div className="bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden p-8">
           <h2 className="text-2xl font-bold text-slate-800 mb-6">
-              {step === 1 ? 'How can we help?' : step === 2 ? 'Let\'s get specifics' : 'Ready to submit?'}
+              {step === 1 ? t('howCanWeHelp') : step === 2 ? 'Let\'s get specifics' : 'Ready to submit?'}
           </h2>
           {step === 1 && renderStep1()}
           {step === 2 && renderStep2()}

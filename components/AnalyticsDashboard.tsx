@@ -2,11 +2,13 @@ import React, { useState } from 'react';
 import { generateAnalyticsInsights } from '../services/geminiService';
 import { getTickets } from '../services/mockStore';
 import { AnalyticsResponse } from '../types';
+import { useLanguage } from '../context/LanguageContext';
 
 export const AnalyticsDashboard: React.FC = () => {
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(false);
   const [report, setReport] = useState<AnalyticsResponse | null>(null);
+  const { t } = useLanguage();
 
   const handleQuery = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -32,8 +34,8 @@ export const AnalyticsDashboard: React.FC = () => {
   return (
     <div className="max-w-5xl mx-auto h-full flex flex-col">
       <div className="mb-8">
-          <h2 className="text-3xl font-bold text-slate-900 mb-2">Insight Query Engine</h2>
-          <p className="text-slate-500">Ask questions about your support operations in plain English.</p>
+          <h2 className="text-3xl font-bold text-slate-900 mb-2">{t('insightEngine')}</h2>
+          <p className="text-slate-500">{t('insightSubtitle')}</p>
       </div>
 
       <div className="bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden flex-1 flex flex-col">
@@ -42,14 +44,14 @@ export const AnalyticsDashboard: React.FC = () => {
               {!report && !loading && (
                   <div className="h-full flex flex-col items-center justify-center text-slate-400 opacity-50">
                       <svg className="w-16 h-16 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
-                      <p className="text-lg">Try asking: "How is our SLA performance this week?"</p>
+                      <p className="text-lg">{t('tryAsking')}</p>
                   </div>
               )}
 
               {loading && (
                   <div className="h-full flex flex-col items-center justify-center">
                       <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mb-4"></div>
-                      <p className="text-indigo-600 font-medium animate-pulse">Analyzing Data...</p>
+                      <p className="text-indigo-600 font-medium animate-pulse">{t('analyzingData')}</p>
                   </div>
               )}
 
@@ -57,32 +59,32 @@ export const AnalyticsDashboard: React.FC = () => {
                   <div className="space-y-8 animate-fade-in">
                       {/* Executive Summary */}
                       <div className="bg-white p-6 rounded-xl border border-indigo-100 shadow-sm">
-                          <h3 className="text-sm font-bold text-indigo-900 uppercase tracking-wide mb-2">Executive Summary</h3>
+                          <h3 className="text-sm font-bold text-indigo-900 uppercase tracking-wide mb-2">{t('executiveSummary')}</h3>
                           <p className="text-slate-800 leading-relaxed text-lg">{report.summary}</p>
                       </div>
 
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                           {/* Trend Card */}
                           <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex flex-col items-center justify-center">
-                              <span className="text-slate-500 text-sm font-bold uppercase mb-2">Trend Analysis</span>
+                              <span className="text-slate-500 text-sm font-bold uppercase mb-2">{t('trendAnalysis')}</span>
                               {report.trend === 'UP' ? (
                                   <span className="text-green-500 flex items-center text-4xl font-bold">
                                       <svg className="w-8 h-8 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>
-                                      Upward
+                                      {t('upward')}
                                   </span>
                               ) : report.trend === 'DOWN' ? (
                                   <span className="text-red-500 flex items-center text-4xl font-bold">
                                       <svg className="w-8 h-8 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6" /></svg>
-                                      Downward
+                                      {t('downward')}
                                   </span>
                               ) : (
-                                  <span className="text-blue-500 flex items-center text-4xl font-bold">Stable</span>
+                                  <span className="text-blue-500 flex items-center text-4xl font-bold">{t('stable')}</span>
                               )}
                           </div>
 
                           {/* Chart Placeholder (Simulated CSS Bar Chart) */}
                           <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm md:col-span-2">
-                              <h4 className="text-slate-800 font-bold mb-4">Visual Breakdown</h4>
+                              <h4 className="text-slate-800 font-bold mb-4">{t('visualBreakdown')}</h4>
                               <div className="h-40 flex items-end justify-around space-x-2">
                                   {report.chartData.map((data, i) => (
                                       <div key={i} className="flex flex-col items-center flex-1 group">
@@ -107,7 +109,7 @@ export const AnalyticsDashboard: React.FC = () => {
                               <svg className="w-6 h-6 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
                           </div>
                           <div>
-                              <h4 className="text-emerald-800 font-bold text-sm">Recommended Strategic Action</h4>
+                              <h4 className="text-emerald-800 font-bold text-sm">{t('recommendedAction')}</h4>
                               <p className="text-emerald-700 mt-1">{report.suggestedAction}</p>
                           </div>
                       </div>
@@ -121,7 +123,7 @@ export const AnalyticsDashboard: React.FC = () => {
                   <input 
                       type="text" 
                       className="w-full pl-6 pr-14 py-4 bg-slate-50 border border-slate-300 rounded-full focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-lg shadow-inner transition-all"
-                      placeholder="Ask insights..."
+                      placeholder={t('askInsights')}
                       value={query}
                       onChange={(e) => setQuery(e.target.value)}
                   />

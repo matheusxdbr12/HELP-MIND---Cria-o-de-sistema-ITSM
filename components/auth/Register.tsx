@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { getDepartments } from '../../services/mockStore';
+import { useLanguage } from '../../context/LanguageContext';
 
 interface RegisterProps {
     onSwitchToLogin: () => void;
@@ -8,6 +9,7 @@ interface RegisterProps {
 
 export const Register: React.FC<RegisterProps> = ({ onSwitchToLogin }) => {
     const { register } = useAuth();
+    const { t } = useLanguage();
     const departments = getDepartments();
     
     const [name, setName] = useState('');
@@ -42,8 +44,8 @@ export const Register: React.FC<RegisterProps> = ({ onSwitchToLogin }) => {
         <div className="min-h-screen bg-slate-100 flex items-center justify-center p-4">
             <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden">
                 <div className="p-8 bg-slate-900 text-white text-center">
-                    <h1 className="text-2xl font-bold">Create Account</h1>
-                    <p className="text-slate-400 mt-2 text-sm">Join your organization's support portal</p>
+                    <h1 className="text-2xl font-bold">{t('createAccount')}</h1>
+                    <p className="text-slate-400 mt-2 text-sm">{t('joinPortal')}</p>
                 </div>
                 
                 <div className="p-8">
@@ -56,7 +58,7 @@ export const Register: React.FC<RegisterProps> = ({ onSwitchToLogin }) => {
 
                     <form onSubmit={handleSubmit} className="space-y-4">
                         <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1">Full Name</label>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">{t('fullName')}</label>
                             <input 
                                 type="text" 
                                 required
@@ -67,7 +69,7 @@ export const Register: React.FC<RegisterProps> = ({ onSwitchToLogin }) => {
                             />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1">Work Email</label>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">{t('workEmail')}</label>
                             <input 
                                 type="email" 
                                 required
@@ -78,25 +80,25 @@ export const Register: React.FC<RegisterProps> = ({ onSwitchToLogin }) => {
                             />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1">Password</label>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">{t('password')}</label>
                             <input 
                                 type="password" 
                                 required
                                 className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
-                                placeholder="Create a strong password"
+                                placeholder="••••••••"
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
                             />
                         </div>
                          <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1">Department</label>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">{t('department')}</label>
                             <select
                                 required
                                 className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
                                 value={departmentId}
                                 onChange={(e) => setDepartmentId(e.target.value)}
                             >
-                                <option value="">Select Department...</option>
+                                <option value="">{t('selectDepartment')}</option>
                                 {departments.map(d => (
                                     <option key={d.id} value={d.id}>{d.name}</option>
                                 ))}
@@ -111,7 +113,7 @@ export const Register: React.FC<RegisterProps> = ({ onSwitchToLogin }) => {
                                 checked={isAgent}
                                 onChange={(e) => setIsAgent(e.target.checked)}
                             />
-                            <label htmlFor="isAgent" className="ml-2 text-sm text-slate-600">Register as Support Agent (Demo Only)</label>
+                            <label htmlFor="isAgent" className="ml-2 text-sm text-slate-600">{t('registerAsAgent')}</label>
                         </div>
                         
                         <button 
@@ -119,13 +121,13 @@ export const Register: React.FC<RegisterProps> = ({ onSwitchToLogin }) => {
                             disabled={isLoading}
                             className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg transition-colors shadow-lg shadow-indigo-200 disabled:opacity-70 mt-4"
                         >
-                            {isLoading ? 'Creating Account...' : 'Register'}
+                            {isLoading ? t('creatingAccount') : t('register')}
                         </button>
                     </form>
 
                     <div className="mt-6 text-center text-sm text-slate-500">
-                        Already have an account? 
-                        <button onClick={onSwitchToLogin} className="text-indigo-600 font-bold ml-1 hover:underline">Sign In</button>
+                        {t('alreadyHaveAccount')} 
+                        <button onClick={onSwitchToLogin} className="text-indigo-600 font-bold ml-1 hover:underline">{t('signIn')}</button>
                     </div>
                 </div>
             </div>

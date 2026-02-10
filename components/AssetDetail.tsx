@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { Asset, AssetReport } from '../types';
+import { Asset, AssetReport, AppPermission } from '../types';
 import { getAssetWithDetails, getAssetHierarchy, getTicketsForAsset, getAssetReports, addAssetReport } from '../services/mockStore';
 import { evaluateAssetHealth, generateAssetDiagnostic } from '../services/geminiService';
+import { useAuth } from '../context/AuthContext';
 
 interface AssetDetailProps {
   asset: Asset;
@@ -10,6 +11,7 @@ interface AssetDetailProps {
 }
 
 export const AssetDetail: React.FC<AssetDetailProps> = ({ asset: rawAsset, onBack, onSelectTicket }) => {
+  const { hasPermission } = useAuth();
   const asset = getAssetWithDetails(rawAsset);
   const children = getAssetHierarchy(asset.id);
   const linkedTickets = getTicketsForAsset(asset.id);
@@ -86,12 +88,14 @@ export const AssetDetail: React.FC<AssetDetailProps> = ({ asset: rawAsset, onBac
                  </div>
              </div>
          </div>
-         <div className="flex space-x-2">
-             <button onClick={handleEvaluate} className="btn-secondary px-4 py-2 border border-slate-300 rounded-lg text-slate-700 font-medium hover:bg-slate-50 text-sm">AI Lifecycle Check</button>
-             <button onClick={handleGenerateReport} className="btn-primary px-4 py-2 bg-indigo-600 text-white rounded-lg font-bold hover:bg-indigo-700 text-sm shadow-sm flex items-center" disabled={isGeneratingReport}>
-                 {isGeneratingReport ? 'Scanning...' : 'Run Diagnostics'}
-             </button>
-         </div>
+         {hasPermission(AppPermission.RUN_DIAGNOSTICS) && (
+             <div className="flex space-x-2">
+                 <button onClick={handleEvaluate} className="btn-secondary px-4 py-2 border border-slate-300 rounded-lg text-slate-700 font-medium hover:bg-slate-50 text-sm">AI Lifecycle Check</button>
+                 <button onClick={handleGenerateReport} className="btn-primary px-4 py-2 bg-indigo-600 text-white rounded-lg font-bold hover:bg-indigo-700 text-sm shadow-sm flex items-center" disabled={isGeneratingReport}>
+                     {isGeneratingReport ? 'Scanning...' : 'Run Diagnostics'}
+                 </button>
+             </div>
+         )}
       </div>
       
       {/* AI Assessment Result (Conditional) */}
@@ -250,20 +254,23 @@ export const AssetDetail: React.FC<AssetDetailProps> = ({ asset: rawAsset, onBac
                        </div>
                    </div>
 
-                   <div className="space-y-3">
-                        <div className="flex justify-between text-sm border-b border-slate-100 pb-2">
-                          <span className="text-slate-500">Purchase Cost</span>
-                          <span className="font-bold text-slate-800">${asset.purchaseCost.toLocaleString()}</span>
-                      </div>
-                      <div className="flex justify-between text-sm border-b border-slate-100 pb-2">
-                          <span className="text-slate-500">Supplier</span>
-                          <span className="font-medium text-slate-800">{asset.supplier || '-'}</span>
-                      </div>
-                      <div className="flex justify-between text-sm">
-                          <span className="text-slate-500">Current Value (Est)</span>
-                          <span className="font-medium text-slate-800">${Math.max(0, Math.floor(asset.purchaseCost * (1 - ((Date.now() - asset.purchaseDate) / (1000 * 60 * 60 * 24 * 365)) * 0.25))).toLocaleString()}</span>
-                      </div>
-                   </div>
+                   {/* Only show financials to authorized roles if sensitive, here assuming VIEW_ALL_ASSETS allows it */}
+                   {hasPermission(AppPermission.VIEW_ALL_ASSETS) && (
+                       <div className="space-y-3">
+                            <div className="flex justify-between text-sm border-b border-slate-100 pb-2">
+                              <span className="text-slate-500">Purchase Cost</span>
+                              <span className="font-bold text-slate-800">${asset.purchaseCost.toLocaleString()}</span>
+                          </div>
+                          <div className="flex justify-between text-sm border-b border-slate-100 pb-2">
+                              <span className="text-slate-500">Supplier</span>
+                              <span className="font-medium text-slate-800">{asset.supplier || '-'}</span>
+                          </div>
+                          <div className="flex justify-between text-sm">
+                              <span className="text-slate-500">Current Value (Est)</span>
+                              <span className="font-medium text-slate-800">${Math.max(0, Math.floor(asset.purchaseCost * (1 - ((Date.now() - asset.purchaseDate) / (1000 * 60 * 60 * 24 * 365)) * 0.25))).toLocaleString()}</span>
+                          </div>
+                       </div>
+                   )}
               </div>
 
           </div>
