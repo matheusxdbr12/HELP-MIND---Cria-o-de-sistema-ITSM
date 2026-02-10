@@ -1,5 +1,6 @@
 import React from 'react';
 import { Ticket, TicketStatus, Priority, Category } from '../types';
+import { formatTimeRemaining } from '../services/slaService';
 
 interface TicketListProps {
   tickets: Ticket[];
@@ -38,8 +39,8 @@ export const TicketList: React.FC<TicketListProps> = ({ tickets, onSelectTicket,
               <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Category</th>
               <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Status</th>
               <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Priority</th>
+              {role === 'AGENT' && <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">SLA Target</th>}
               <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Created</th>
-              {role === 'AGENT' && <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Sentiment</th>}
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
@@ -60,21 +61,27 @@ export const TicketList: React.FC<TicketListProps> = ({ tickets, onSelectTicket,
                   </span>
                 </td>
                 <td className={`px-6 py-4 text-sm ${getPriorityColor(ticket.priority)}`}>{ticket.priority}</td>
+                
+                {role === 'AGENT' && (
+                    <td className="px-6 py-4">
+                        {ticket.status !== TicketStatus.CLOSED && ticket.status !== TicketStatus.RESOLVED ? (
+                             <div className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-mono font-medium ${
+                                 ticket.slaStatus === 'BREACHED' ? 'bg-red-100 text-red-700' :
+                                 ticket.slaStatus === 'AT_RISK' ? 'bg-orange-100 text-orange-700' :
+                                 'bg-green-100 text-green-700'
+                             }`}>
+                                 {ticket.slaStatus === 'BREACHED' ? '⚠️ ' : ''}
+                                 {formatTimeRemaining(ticket.slaTarget)}
+                             </div>
+                        ) : (
+                            <span className="text-slate-400 text-xs">-</span>
+                        )}
+                    </td>
+                )}
+
                 <td className="px-6 py-4 text-sm text-slate-500">
                     {new Date(ticket.createdAt).toLocaleDateString()}
                 </td>
-                 {role === 'AGENT' && (
-                     <td className="px-6 py-4 text-sm">
-                         {ticket.sentiment === 'Frustrated' || ticket.sentiment === 'Angry' ? (
-                             <span className="flex items-center text-red-500 font-medium">
-                                 <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                                 {ticket.sentiment}
-                             </span>
-                         ) : (
-                             <span className="text-green-600">{ticket.sentiment}</span>
-                         )}
-                     </td>
-                 )}
               </tr>
             ))}
             {tickets.length === 0 && (

@@ -28,14 +28,26 @@ export const AssetForm: React.FC<AssetFormProps> = ({ onAssetCreated, onCancel }
     e.preventDefault();
     if (!selectedBrandId || !selectedModelId || !serialNumber) return;
 
+    const type = selectedModel ? selectedModel.category : AssetType.HARDWARE;
+    // Map AssetType to a default categoryId since the form doesn't select it
+    let categoryId = 'CAT-COMP';
+    if (type === AssetType.SOFTWARE) categoryId = 'CAT-SOFT';
+    if (type === AssetType.SERVER) categoryId = 'CAT-SERV';
+    if (type === AssetType.PERIPHERAL) categoryId = 'CAT-PERI';
+    if (type === AssetType.NETWORK) categoryId = 'CAT-NET';
+
+    const assetCode = `AST-${new Date().getFullYear()}-${Math.floor(Math.random() * 10000)}`;
+
     const newAsset: Asset = {
-        id: `AST-${new Date().getFullYear()}-${Math.floor(Math.random() * 10000)}`,
+        id: `A-${Date.now()}`,
+        assetCode: assetCode,
+        categoryId: categoryId,
         brandId: selectedBrandId,
         modelId: selectedModelId,
         departmentId,
         name: selectedModel ? `${selectedModel.name} - ${serialNumber.slice(-4)}` : 'New Asset',
         serialNumber,
-        type: selectedModel ? selectedModel.category : AssetType.HARDWARE,
+        type: type,
         status: assignedUser ? AssetStatus.IN_USE : AssetStatus.IN_STOCK,
         condition,
         purchaseDate: Date.now(),

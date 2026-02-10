@@ -1,4 +1,5 @@
-import { Ticket, User, TicketStatus, Priority, Category, Sentiment, Message, Asset, AssetType, AssetStatus, AgentScore, Brand, Model, Department, AssetCondition, Feedback, AssetReport, AuditLog, SystemConfig, SystemHealth } from "../types";
+import { Ticket, User, TicketStatus, Priority, Category, Sentiment, Message, Asset, AssetType, AssetStatus, AgentScore, Brand, Model, Department, AssetCondition, Feedback, AssetReport, AuditLog, SystemConfig, SystemHealth, EscalationRule, AssetCategory, AssetSubcategory } from "../types";
+import { calculateSLADeadline, getSLAStatus } from "./slaService";
 
 // --- Registries ---
 
@@ -7,6 +8,25 @@ export const BRANDS: Brand[] = [
   { id: 'B-APPLE', name: 'Apple', website: 'apple.com', logoUrl: 'https://upload.wikimedia.org/wikipedia/commons/f/fa/Apple_logo_black.svg' },
   { id: 'B-ADOBE', name: 'Adobe', website: 'adobe.com' },
   { id: 'B-HP', name: 'HP', website: 'hp.com' }
+];
+
+export const ASSET_CATEGORIES: AssetCategory[] = [
+    { id: 'CAT-COMP', name: 'Computers', icon: 'desktop', description: 'Desktop computers and workstations' },
+    { id: 'CAT-NOTE', name: 'Notebooks', icon: 'laptop', description: 'Laptops and notebooks' },
+    { id: 'CAT-MON', name: 'Monitors', icon: 'monitor', description: 'Computer monitors and displays' },
+    { id: 'CAT-PERI', name: 'Peripherals', icon: 'mouse', description: 'Input/output devices' },
+    { id: 'CAT-SERV', name: 'Servers', icon: 'server', description: 'Server hardware' },
+    { id: 'CAT-NET', name: 'Networking', icon: 'network', description: 'Network equipment' },
+    { id: 'CAT-SOFT', name: 'Software', icon: 'code', description: 'Licenses and Cloud Subs' }
+];
+
+export const ASSET_SUBCATEGORIES: AssetSubcategory[] = [
+    { id: 'SUB-NB-ULTRA', categoryId: 'CAT-NOTE', name: 'Ultrabook', specificationsTemplate: { "screen_size": "", "cpu": "", "ram": "" } },
+    { id: 'SUB-NB-WORK', categoryId: 'CAT-NOTE', name: 'Workstation', specificationsTemplate: { "gpu": "", "cpu": "", "ram": "" } },
+    { id: 'SUB-MON-LED', categoryId: 'CAT-MON', name: 'LED Monitor', specificationsTemplate: { "size": "", "resolution": "" } },
+    { id: 'SUB-PERI-ACC', categoryId: 'CAT-PERI', name: 'Accessory', specificationsTemplate: { "type": "" } },
+    { id: 'SUB-SERV-RACK', categoryId: 'CAT-SERV', name: 'Rack Server', specificationsTemplate: { "u_size": "", "cpu_sockets": "" } },
+    { id: 'SUB-SOFT-SUB', categoryId: 'CAT-SOFT', name: 'Subscription', specificationsTemplate: { "renewal": "" } }
 ];
 
 export const MODELS: Model[] = [
@@ -46,7 +66,6 @@ export const DEPARTMENTS: Department[] = [
 
 // --- Mock Users ---
 
-// Mutable container for users to support registration
 export let USERS: Record<string, User> = {
   'user1': { 
     id: 'user1', email: 'alice@company.com', password: 'password', name: 'Alice Customer', role: 'CUSTOMER', avatar: 'https://picsum.photos/id/64/100/100', departmentId: 'D-DES', status: 'ACTIVE'
@@ -67,8 +86,29 @@ export let USERS: Record<string, User> = {
   },
   'admin1': {
       id: 'admin1', email: 'admin@helpmind.com', password: 'password', name: 'System Administrator', role: 'SUPER_ADMIN', avatar: 'https://ui-avatars.com/api/?name=System+Admin&background=1e293b&color=fff', status: 'ACTIVE'
+  },
+  'manager1': {
+      id: 'manager1', email: 'manager@helpmind.com', password: 'password', name: 'Ops Manager', role: 'ADMIN', avatar: 'https://ui-avatars.com/api/?name=Ops+Manager&background=6366f1&color=fff', status: 'ACTIVE'
   }
 };
+
+// --- Escalation Rules Store ---
+let escalationRules: EscalationRule[] = [
+    {
+        id: 'rule-1',
+        name: 'Critical Breach -> Admin',
+        isActive: true,
+        condition: { priority: Priority.CRITICAL, slaStatus: 'BREACHED' },
+        action: { assignToUserId: 'admin1', note: 'Escalated to Admin due to Critical SLA Breach' }
+    },
+    {
+        id: 'rule-2',
+        name: 'High Priority Tech -> Manager',
+        isActive: true,
+        condition: { priority: Priority.HIGH, category: Category.TECHNICAL, slaStatus: 'BREACHED' },
+        action: { assignToUserId: 'manager1', note: 'Escalated to Ops Manager due to High Priority Tech breach.' }
+    }
+];
 
 // --- Admin & Security Stores ---
 let auditLogs: AuditLog[] = [
@@ -85,6 +125,14 @@ let systemConfig: SystemConfig = {
 };
 
 // --- Mock Data Containers ---
+// Helper for init
+const initSLA = (priority: Priority, created: number) => {
+    return calculateSLADeadline(priority, created);
+};
+
+const t1Created = Date.now() - 86400000;
+const t1SLA = initSLA(Priority.HIGH, t1Created);
+
 let tickets: Ticket[] = [
   {
     id: 'T-1001',
@@ -94,52 +142,71 @@ let tickets: Ticket[] = [
     priority: Priority.HIGH,
     status: TicketStatus.OPEN,
     sentiment: Sentiment.FRUSTRATED,
-    createdAt: Date.now() - 86400000,
+    createdAt: t1Created,
     updatedAt: Date.now() - 86000000,
     customerId: 'user1',
     messages: [
-      { id: 'm1', ticketId: 'T-1001', senderId: 'user1', senderName: 'Alice Customer', content: 'I cannot log in to the IOS app after the latest update.', timestamp: Date.now() - 86400000, isInternal: false }
-    ]
+      { id: 'm1', ticketId: 'T-1001', senderId: 'user1', senderName: 'Alice Customer', content: 'I cannot log in to the IOS app after the latest update.', timestamp: t1Created, isInternal: false }
+    ],
+    slaTarget: t1SLA.target,
+    slaStatus: 'BREACHED', // Manually set for mock demo
+    slaTier: t1SLA.tier,
+    demandFactorApplied: t1SLA.demandFactor,
+    isEscalated: false
   }
 ];
 
 let assets: Asset[] = [
   {
     id: 'A-101',
+    assetCode: 'AST-2023-001',
     brandId: 'B-DELL', modelId: 'M-XPS15', departmentId: 'D-DES',
+    categoryId: 'CAT-NOTE', subcategoryId: 'SUB-NB-WORK',
     name: "Alice's Workstation", serialNumber: "DXPS-998877",
     type: AssetType.HARDWARE, status: AssetStatus.IN_USE, condition: AssetCondition.GOOD,
     purchaseDate: Date.now() - 31536000000, purchaseCost: 2499, supplier: 'CDW',
     warrantyExpiry: Date.now() + 15768000000, 
-    assignedTo: 'user1',
-    specs: { "CPU": "Intel Core i9", "RAM": "32GB", "OS": "Windows 11" }
+    assignedTo: 'user1', assignmentDate: Date.now() - 31536000000,
+    location: 'Building A, Floor 3', ipAddress: '192.168.1.105', macAddress: '00:1A:2B:3C:4D:5E',
+    specs: { "CPU": "Intel Core i9", "RAM": "32GB", "OS": "Windows 11", "Storage": "1TB SSD" }
   },
   {
     id: 'A-102', // Child of A-101
+    assetCode: 'AST-2023-002',
     brandId: 'B-DELL', modelId: 'M-DELL-MON', departmentId: 'D-DES',
+    categoryId: 'CAT-MON', subcategoryId: 'SUB-MON-LED',
     name: "Alice's Monitor", serialNumber: "MNTR-445566",
     type: AssetType.PERIPHERAL, status: AssetStatus.IN_USE, condition: AssetCondition.EXCELLENT,
     purchaseDate: Date.now() - 15768000000, purchaseCost: 650, supplier: 'Dell Direct',
     warrantyExpiry: Date.now() + 47304000000,
-    assignedTo: 'user1', parentId: 'A-101'
+    assignedTo: 'user1', parentId: 'A-101',
+    location: 'Building A, Floor 3',
+    specs: { "Size": "27 inch", "Resolution": "4K" }
   },
   {
     id: 'A-103',
+    assetCode: 'AST-2024-055',
     brandId: 'B-ADOBE', modelId: 'M-ADOBE-CC', departmentId: 'D-DES',
+    categoryId: 'CAT-SOFT', subcategoryId: 'SUB-SOFT-SUB',
     name: "Alice's Creative Cloud", serialNumber: "LIC-Adobe-2024",
     type: AssetType.SOFTWARE, status: AssetStatus.IN_USE, condition: AssetCondition.NEW,
     purchaseDate: Date.now() - 5000000000, purchaseCost: 899, supplier: 'Adobe',
     warrantyExpiry: Date.now() + 10000000000, 
-    assignedTo: 'user1'
+    assignedTo: 'user1',
+    specs: { "License": "Enterprise", "Seats": "1" }
   },
   {
     id: 'A-201', // Server
+    assetCode: 'AST-SRV-001',
     brandId: 'B-HP', modelId: 'M-HP-SERVER', departmentId: 'D-IT',
+    categoryId: 'CAT-SERV', subcategoryId: 'SUB-SERV-RACK',
     name: "Main App Server", serialNumber: "SRV-001",
     type: AssetType.SERVER, status: AssetStatus.IN_USE, condition: AssetCondition.GOOD,
     purchaseDate: Date.now() - 63072000000, purchaseCost: 5500, supplier: 'HPE',
     warrantyExpiry: Date.now() - 1000000, // Expired
-    specs: { "Role": "Application Server", "IP": "10.0.0.5" }
+    location: 'Data Center 1', ipAddress: '10.0.0.5',
+    specs: { "Role": "Application Server", "CPU": "Xeon Gold", "RAM": "64GB ECC", "Storage": "RAID 5 12TB" },
+    lastMaintenanceDate: Date.now() - 2592000000
   }
 ];
 
@@ -162,9 +229,28 @@ export const findUserByEmail = (email: string) => {
 };
 
 // --- Ticket Stores ---
-export const getTickets = () => [...tickets];
+export const getTickets = () => {
+    // Recalculate SLA status on fetch to keep badges updated
+    return tickets.map(t => ({...t, slaStatus: getSLAStatus(t) }));
+};
+
 export const getTicketById = (id: string) => tickets.find(t => t.id === id);
-export const addTicket = (ticket: Ticket) => { tickets = [ticket, ...tickets]; return ticket; };
+
+export const addTicket = (ticket: Ticket) => { 
+    // Calculate SLA
+    const sla = calculateSLADeadline(ticket.priority, ticket.createdAt);
+    const enrichedTicket = {
+        ...ticket,
+        slaTarget: sla.target,
+        slaTier: sla.tier,
+        demandFactorApplied: sla.demandFactor,
+        slaStatus: 'ON_TRACK' as const
+    };
+
+    tickets = [enrichedTicket, ...tickets]; 
+    return enrichedTicket; 
+};
+
 export const updateTicketStatus = (id: string, status: TicketStatus) => { tickets = tickets.map(t => t.id === id ? { ...t, status, updatedAt: Date.now() } : t); };
 export const addMessageToTicket = (ticketId: string, message: Message) => {
   tickets = tickets.map(t => { if (t.id === ticketId) { return { ...t, messages: [...t.messages, message], updatedAt: Date.now(), status: message.senderId.startsWith('agent') ? TicketStatus.AWAITING_CUSTOMER : TicketStatus.IN_PROGRESS }; } return t; });
@@ -202,13 +288,29 @@ export const getTicketsForAsset = (assetId: string) => tickets.filter(t => t.lin
 export const getBrands = () => [...BRANDS];
 export const getModels = () => [...MODELS];
 export const getDepartments = () => [...DEPARTMENTS];
+export const getAssetCategories = () => [...ASSET_CATEGORIES];
+export const getAssetSubcategories = () => [...ASSET_SUBCATEGORIES];
 
 // Helper to resolve relationships
 export const getAssetWithDetails = (asset: Asset) => {
     const brand = BRANDS.find(b => b.id === asset.brandId);
     const model = MODELS.find(m => m.id === asset.modelId);
     const dept = DEPARTMENTS.find(d => d.id === asset.departmentId);
-    return { ...asset, brandName: brand?.name, modelName: model?.name, modelImage: model?.imageUrl, departmentName: dept?.name };
+    const cat = ASSET_CATEGORIES.find(c => c.id === asset.categoryId);
+    const sub = ASSET_SUBCATEGORIES.find(s => s.id === asset.subcategoryId);
+    const assignee = asset.assignedTo ? USERS[asset.assignedTo] : null;
+
+    return { 
+        ...asset, 
+        brandName: brand?.name, 
+        modelName: model?.name, 
+        modelImage: model?.imageUrl, 
+        departmentName: dept?.name,
+        categoryName: cat?.name,
+        categoryIcon: cat?.icon,
+        subcategoryName: sub?.name,
+        assigneeName: assignee?.name
+    };
 };
 
 // Hierarchy Helper
@@ -218,7 +320,7 @@ export const getAssetHierarchy = (assetId: string) => {
 }
 
 // Assignment Logic
-export const getAgents = () => Object.values(USERS).filter(u => u.role === 'AGENT');
+export const getAgents = () => Object.values(USERS).filter(u => u.role === 'AGENT' || u.role === 'ADMIN' || u.role === 'SUPER_ADMIN');
 export const calculateBestAgent = (ticket: Ticket): AgentScore[] => {
     const agents = getAgents();
     const asset = ticket.linkedAssetId ? getAssetById(ticket.linkedAssetId) : null;
@@ -331,3 +433,130 @@ export const getSystemHealth = (): SystemHealth => {
         pendingJobs: tickets.filter(t => t.status === TicketStatus.OPEN).length
     };
 }
+
+// --- Escalation Rule Logic ---
+
+export const getEscalationRules = () => [...escalationRules];
+
+export const addEscalationRule = (rule: Omit<EscalationRule, 'id'>) => {
+    const newRule = { ...rule, id: `rule-${Date.now()}` };
+    escalationRules = [...escalationRules, newRule];
+    return newRule;
+};
+
+export const deleteEscalationRule = (id: string) => {
+    escalationRules = escalationRules.filter(r => r.id !== id);
+};
+
+export const runEscalationJob = (actorId: string): number => {
+    let escalationCount = 0;
+    const now = Date.now();
+
+    tickets = tickets.map(ticket => {
+        if (ticket.status === TicketStatus.CLOSED || ticket.status === TicketStatus.RESOLVED) return ticket;
+        if (ticket.isEscalated) return ticket; // Already escalated, skip (for simplicity of demo)
+
+        // Calculate fresh SLA status
+        const slaStatus = getSLAStatus(ticket);
+        
+        // Find first matching rule
+        const rule = escalationRules.find(r => {
+            if (!r.isActive) return false;
+            
+            // Matches Priority?
+            if (r.condition.priority && r.condition.priority !== ticket.priority) return false;
+            
+            // Matches Category?
+            if (r.condition.category && r.condition.category !== ticket.category) return false;
+
+            // Matches SLA?
+            if (r.condition.slaStatus && r.condition.slaStatus !== slaStatus) return false;
+
+            return true;
+        });
+
+        if (rule) {
+            escalationCount++;
+            
+            // Create Audit Log
+            logAdminAction('system', 'AUTO_ESCALATION', ticket.id, `Escalated via Rule: ${rule.name}`, 'WARNING');
+
+            // Add Internal Note Message
+            const sysMessage: Message = {
+                id: `m-esc-${Date.now()}`,
+                ticketId: ticket.id,
+                senderId: 'system',
+                senderName: 'System Escalation Bot',
+                content: `⚡ TICKET ESCALATED ⚡\nReason: ${rule.action.note}\nAction: ${rule.action.assignToUserId ? `Reassigned to ${USERS[rule.action.assignToUserId]?.name}` : 'No reassignment'}.`,
+                timestamp: now,
+                isInternal: true
+            };
+
+            return {
+                ...ticket,
+                isEscalated: true,
+                assignedAgentId: rule.action.assignToUserId || ticket.assignedAgentId,
+                priority: rule.action.newPriority || ticket.priority,
+                messages: [...ticket.messages, sysMessage],
+                updatedAt: now
+            };
+        }
+
+        return ticket;
+    });
+
+    if (escalationCount > 0) {
+        logAdminAction(actorId, 'RUN_ESCALATION_JOB', undefined, `Ran escalation job. Escalated ${escalationCount} tickets.`, 'INFO');
+    }
+
+    return escalationCount;
+};
+
+// --- New Dashboard Aggregation Logic ---
+
+export const getAssetStats = () => {
+    const allAssets = getAssets();
+    
+    // Total Value
+    const totalValue = allAssets.reduce((sum, a) => sum + (a.purchaseCost || 0), 0);
+    
+    // Status Counts
+    const statusCounts = allAssets.reduce((acc: any, a) => {
+        acc[a.status] = (acc[a.status] || 0) + 1;
+        return acc;
+    }, {});
+
+    // Category Counts
+    const categoryCounts = allAssets.reduce((acc: any, a) => {
+        const catName = ASSET_CATEGORIES.find(c => c.id === a.categoryId)?.name || 'Unknown';
+        acc[catName] = (acc[catName] || 0) + 1;
+        return acc;
+    }, {});
+
+    // Expiring Warranties (next 90 days)
+    const ninetyDays = 90 * 24 * 60 * 60 * 1000;
+    const now = Date.now();
+    const expiringCount = allAssets.filter(a => a.warrantyExpiry > now && a.warrantyExpiry < (now + ninetyDays)).length;
+
+    // Maintenance Queue
+    const maintenanceCount = allAssets.filter(a => a.status === AssetStatus.MAINTENANCE).length;
+
+    return {
+        totalAssets: allAssets.length,
+        totalValue,
+        statusCounts,
+        categoryCounts,
+        expiringCount,
+        maintenanceCount,
+        assignedCount: allAssets.filter(a => a.status === AssetStatus.IN_USE).length
+    };
+};
+
+export const getRecentAssetActivity = () => {
+    return [
+        { id: 1, action: 'Asset Assigned', details: 'MacBook Air M2 assigned to John Doe', time: '2 hours ago', icon: 'user-check' },
+        { id: 2, action: 'Maintenance Completed', details: 'Server patch update applied (SRV-001)', time: '5 hours ago', icon: 'check-circle' },
+        { id: 3, action: 'New Asset', details: 'Added Dell XPS 15 to inventory', time: '1 day ago', icon: 'plus' },
+        { id: 4, action: 'Warranty Alert', details: 'License expiring for Adobe CC', time: '2 days ago', icon: 'alert-triangle' }
+    ];
+};

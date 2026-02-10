@@ -6,17 +6,19 @@ import { TicketDetail } from './components/TicketDetail';
 import { AssetList } from './components/AssetList';
 import { AssetDetail } from './components/AssetDetail';
 import { AssetForm } from './components/AssetForm';
+import { AssetDashboard } from './components/AssetDashboard';
 import { AnalyticsDashboard } from './components/AnalyticsDashboard';
 import { AdminDashboard } from './components/admin/AdminDashboard';
+import { AgentDashboard } from './components/AgentDashboard';
 import { Login } from './components/auth/Login';
 import { Register } from './components/auth/Register';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { getTickets, getTicketById, getAssets, getAssetById } from './services/mockStore';
-import { Ticket, Asset } from './types';
+import { Ticket, Asset, AppPermission } from './types';
 
 // Main Application Layout
 const AppLayout: React.FC = () => {
-  const { user, isAuthenticated, isLoading } = useAuth();
+  const { user, isAuthenticated, isLoading, hasPermission } = useAuth();
   const [activeView, setActiveView] = useState('portal');
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [assets, setAssets] = useState<Asset[]>([]);
@@ -34,12 +36,12 @@ const AppLayout: React.FC = () => {
   useEffect(() => {
     if (isAuthenticated) {
         refreshData();
-        // Reset view based on role if just logged in
-        if (activeView === 'portal' && user?.role === 'AGENT') setActiveView('dashboard');
-        if (activeView === 'portal' && user?.role === 'SUPER_ADMIN') setActiveView('admin-console');
-        if (activeView === 'dashboard' && user?.role === 'CUSTOMER') setActiveView('portal');
+        // Redirect if on a restricted view on login
+        if (activeView === 'portal' && hasPermission(AppPermission.VIEW_ALL_TICKETS)) setActiveView('dashboard');
+        else if (activeView === 'dashboard' && !hasPermission(AppPermission.VIEW_ALL_TICKETS)) setActiveView('portal');
+        else if (activeView === 'admin-console' && !hasPermission(AppPermission.MANAGE_SYSTEM)) setActiveView('portal');
     }
-  }, [isAuthenticated, user, activeView]);
+  }, [isAuthenticated, user, hasPermission]); // Removed activeView from deps to prevent loop
 
   if (isLoading) {
       return (
@@ -63,7 +65,7 @@ const AppLayout: React.FC = () => {
 
   const handleAssetCreated = () => {
       refreshData();
-      setActiveView('assets');
+      setActiveView('assets-inventory');
   }
 
   const handleSelectTicket = (id: string) => {
@@ -77,40 +79,53 @@ const AppLayout: React.FC = () => {
   };
 
   const renderContent = () => {
+    // 1. Ticket Detail View
     if (activeView.startsWith('ticket-') && selectedTicketId) {
+      // Permission check could be more granular here (e.g., own vs all)
+      // Logic inside TicketDetail will handle what data to show
       const ticket = getTicketById(selectedTicketId);
       if (ticket) {
         return (
           <TicketDetail 
             ticket={ticket} 
             currentUser={user!} 
-            onBack={() => setActiveView(user?.role === 'CUSTOMER' ? 'my-tickets' : 'dashboard')}
+            onBack={() => setActiveView(hasPermission(AppPermission.VIEW_ALL_TICKETS) ? 'dashboard' : 'my-tickets')}
             onUpdate={refreshData}
           />
         );
       }
     }
 
+    // 2. Asset Detail View
     if (activeView.startsWith('asset-') && selectedAssetId) {
+      if (!hasPermission(AppPermission.VIEW_ALL_ASSETS)) {
+          // Simple fallback for customer assets, though specific perm check is better
+          if (!hasPermission(AppPermission.VIEW_MY_ASSETS)) return <div>Unauthorized</div>;
+      }
+
       const asset = getAssetById(selectedAssetId);
       if (asset) {
         return (
            <AssetDetail 
              asset={asset}
-             onBack={() => setActiveView('assets')}
+             onBack={() => setActiveView('assets-inventory')}
              onSelectTicket={handleSelectTicket}
            />
         );
       }
     }
 
+    // 3. Create Asset View
     if (activeView === 'assets-new') {
+        if (!hasPermission(AppPermission.MANAGE_ASSETS)) return <div className="p-8 text-center text-red-500 font-bold">Unauthorized Access</div>;
         return <AssetForm onAssetCreated={handleAssetCreated} onCancel={() => setActiveView('assets')} />;
     }
 
+    // 4. Main Views
     switch (activeView) {
       case 'portal':
         return <TicketForm onTicketCreated={handleTicketCreated} currentUser={user} />;
+      
       case 'my-tickets':
         const myTickets = tickets.filter(t => t.customerId === user?.id);
         return (
@@ -119,48 +134,53 @@ const AppLayout: React.FC = () => {
             <TicketList tickets={myTickets} onSelectTicket={handleSelectTicket} role="CUSTOMER" />
           </div>
         );
+      
       case 'dashboard':
-        return (
-           <div className="max-w-6xl mx-auto h-full">
-            <div className="flex justify-between items-center mb-6">
-                <h2 className="text-2xl font-bold text-slate-800">Agent Queue</h2>
-                <div className="flex space-x-2">
-                    <span className="px-3 py-1 bg-white border border-slate-200 rounded-lg text-sm font-medium text-slate-600">
-                        {tickets.filter(t => t.status !== 'CLOSED').length} Open
-                    </span>
-                     <span className="px-3 py-1 bg-red-50 border border-red-100 rounded-lg text-sm font-medium text-red-600">
-                        {tickets.filter(t => t.priority === 'Critical').length} Critical
-                    </span>
-                </div>
-            </div>
-            <TicketList tickets={tickets} onSelectTicket={handleSelectTicket} role="AGENT" />
-          </div>
-        );
+        if (!hasPermission(AppPermission.VIEW_ALL_TICKETS)) return <div className="p-8 text-center text-red-500 font-bold">Unauthorized: Agent Access Required</div>;
+        return <AgentDashboard tickets={tickets} onSelectTicket={handleSelectTicket} />;
+      
       case 'assets':
+          // The Main Assets View is now the Dashboard
+          if (!hasPermission(AppPermission.VIEW_ALL_ASSETS)) return <div className="p-8 text-center text-red-500 font-bold">Unauthorized</div>;
+          return <AssetDashboard 
+                    onNavigateToInventory={() => setActiveView('assets-inventory')}
+                    onNavigateToNewAsset={() => setActiveView('assets-new')}
+                 />;
+
+      case 'assets-inventory':
+          if (!hasPermission(AppPermission.VIEW_ALL_ASSETS)) return <div className="p-8 text-center text-red-500 font-bold">Unauthorized</div>;
           return (
-            <div className="max-w-6xl mx-auto">
+            <div className="max-w-7xl mx-auto">
                 <div className="flex justify-between items-center mb-6">
                     <div>
                         <h2 className="text-2xl font-bold text-slate-800">IT Assets Inventory</h2>
                         <span className="text-sm text-slate-500">Manage hardware, software, and organization allocations.</span>
                     </div>
-                    {user?.role === 'AGENT' && (
-                        <button 
-                            onClick={() => setActiveView('assets-new')}
-                            className="bg-indigo-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-indigo-700 transition-colors flex items-center"
-                        >
-                            <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
-                            Register Asset
-                        </button>
-                    )}
+                    <div className="flex gap-3">
+                        <button onClick={() => setActiveView('assets')} className="text-slate-500 hover:text-indigo-600 font-medium text-sm">Back to Dashboard</button>
+                        {hasPermission(AppPermission.MANAGE_ASSETS) && (
+                            <button 
+                                onClick={() => setActiveView('assets-new')}
+                                className="bg-indigo-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-indigo-700 transition-colors flex items-center"
+                            >
+                                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                                Register Asset
+                            </button>
+                        )}
+                    </div>
                 </div>
                 <AssetList assets={assets} onSelectAsset={handleSelectAsset} />
             </div>
           );
+      
       case 'analytics':
+          if (!hasPermission(AppPermission.VIEW_ANALYTICS)) return <div className="p-8 text-center text-red-500 font-bold">Unauthorized</div>;
           return <AnalyticsDashboard />;
+      
       case 'admin-console':
-          return user?.role === 'SUPER_ADMIN' ? <AdminDashboard /> : <div>Unauthorized</div>;
+          if (!hasPermission(AppPermission.MANAGE_SYSTEM)) return <div className="p-8 text-center text-red-500 font-bold">Unauthorized: Super Admin Access Required</div>;
+          return <AdminDashboard />;
+      
       default:
         return <div>Not Found</div>;
     }
@@ -169,7 +189,7 @@ const AppLayout: React.FC = () => {
   return (
     <div className="min-h-screen bg-slate-100 font-sans">
       <Sidebar 
-        activeView={activeView} 
+        activeView={activeView.startsWith('asset') ? 'assets' : activeView} 
         setActiveView={setActiveView} 
       />
       

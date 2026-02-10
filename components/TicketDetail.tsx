@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Ticket, User, Message, TicketStatus, Priority, Asset, AgentScore, Feedback } from '../types';
+import { Ticket, User, Message, TicketStatus, Priority, Asset, AgentScore, Feedback, AppPermission } from '../types';
 import { generateTicketSummary, generateAgentDraft, analyzeRootCause, analyzeCustomerFeedback } from '../services/geminiService';
 import { addMessageToTicket, updateTicketAnalysis, updateTicketStatus, getAssetById, linkAssetToTicket, getAssets, calculateBestAgent, updateTicketAssignee, getAssetWithDetails, submitFeedback, getTicketFeedback } from '../services/mockStore';
+import { formatTimeRemaining, getSLAStatus } from '../services/slaService';
+import { useAuth } from '../context/AuthContext';
 
 interface TicketDetailProps {
   ticket: Ticket;
@@ -11,6 +13,8 @@ interface TicketDetailProps {
 }
 
 export const TicketDetail: React.FC<TicketDetailProps> = ({ ticket, currentUser, onBack, onUpdate }) => {
+  const { hasPermission } = useAuth();
+  
   const [newMessage, setNewMessage] = useState('');
   const [summary, setSummary] = useState(ticket.aiAnalysis?.summary || '');
   const [isSummarizing, setIsSummarizing] = useState(false);
@@ -35,16 +39,19 @@ export const TicketDetail: React.FC<TicketDetailProps> = ({ ticket, currentUser,
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  const slaStatus = getSLAStatus(ticket);
+  const timeRemaining = formatTimeRemaining(ticket.slaTarget);
+
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     setLinkedAsset(ticket.linkedAssetId ? getAssetById(ticket.linkedAssetId) : undefined);
     setExistingFeedback(getTicketFeedback(ticket.id));
     
     // Calculate agent scores whenever ticket opens/changes
-    if (currentUser.role === 'AGENT') {
+    if (hasPermission(AppPermission.MANAGE_TICKETS)) {
         setAgentScores(calculateBestAgent(ticket));
     }
-  }, [ticket, ticket.linkedAssetId, currentUser.role]);
+  }, [ticket, ticket.linkedAssetId, currentUser.role, hasPermission]);
 
   const handleSendMessage = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -243,7 +250,7 @@ export const TicketDetail: React.FC<TicketDetailProps> = ({ ticket, currentUser,
             </div>
           </div>
           <div className="flex items-center space-x-3">
-             {currentUser.role === 'AGENT' && (
+             {hasPermission(AppPermission.MANAGE_TICKETS) && (
                  <select 
                     value={ticket.status} 
                     onChange={handleStatusChange}
@@ -263,8 +270,32 @@ export const TicketDetail: React.FC<TicketDetailProps> = ({ ticket, currentUser,
           </div>
         </div>
 
+        {/* SLA Banner */}
+        {ticket.status !== TicketStatus.CLOSED && ticket.status !== TicketStatus.RESOLVED && (
+            <div className={`px-6 py-2 flex justify-between items-center text-sm font-medium ${
+                slaStatus === 'BREACHED' ? 'bg-red-100 text-red-800 border-b border-red-200' : 
+                slaStatus === 'AT_RISK' ? 'bg-orange-100 text-orange-800 border-b border-orange-200' : 
+                'bg-blue-50 text-blue-800 border-b border-blue-100'
+            }`}>
+                <div className="flex items-center space-x-2">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                    <span>SLA Timer: {ticket.slaTier} Tier</span>
+                </div>
+                <div>
+                    {slaStatus === 'BREACHED' ? (
+                        <span className="font-bold uppercase tracking-wide flex items-center">
+                            Breached by {timeRemaining.replace('-', '')}
+                            <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                        </span>
+                    ) : (
+                        <span>Due in <span className="font-bold font-mono">{timeRemaining}</span></span>
+                    )}
+                </div>
+            </div>
+        )}
+
         {/* Resolution Verification Banner (Customer View) */}
-        {ticket.status === TicketStatus.RESOLVED && currentUser.role === 'CUSTOMER' && (
+        {ticket.status === TicketStatus.RESOLVED && !hasPermission(AppPermission.MANAGE_TICKETS) && (
             <div className="bg-green-50 border-b border-green-200 p-4 flex justify-between items-center animate-fade-in">
                 <div className="flex items-center space-x-3">
                     <div className="bg-green-100 p-2 rounded-full">
@@ -357,7 +388,7 @@ export const TicketDetail: React.FC<TicketDetailProps> = ({ ticket, currentUser,
                     >
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>
                     </button>
-                    {currentUser.role === 'AGENT' && (
+                    {hasPermission(AppPermission.MANAGE_TICKETS) && (
                          <>
                             <button
                                 type="button"
@@ -390,7 +421,7 @@ export const TicketDetail: React.FC<TicketDetailProps> = ({ ticket, currentUser,
         )}
 
         {/* Closed Ticket Feedback View (For Agents) */}
-        {ticket.status === TicketStatus.CLOSED && existingFeedback && currentUser.role === 'AGENT' && (
+        {ticket.status === TicketStatus.CLOSED && existingFeedback && hasPermission(AppPermission.MANAGE_TICKETS) && (
              <div className="p-6 bg-slate-50 border-t border-slate-200">
                  <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
                      <div className="flex items-center justify-between mb-3">
@@ -433,7 +464,7 @@ export const TicketDetail: React.FC<TicketDetailProps> = ({ ticket, currentUser,
       <div className="w-80 flex flex-col gap-6 overflow-y-auto pr-1">
         
         {/* Intelligent Assignment Card (New) */}
-        {currentUser.role === 'AGENT' && ticket.status !== TicketStatus.CLOSED && (
+        {hasPermission(AppPermission.MANAGE_TICKETS) && ticket.status !== TicketStatus.CLOSED && (
              <div className="bg-white p-5 rounded-xl shadow border border-indigo-100 ring-2 ring-indigo-50">
                  <div className="flex items-center space-x-2 mb-4">
                      <svg className="w-5 h-5 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
@@ -479,7 +510,7 @@ export const TicketDetail: React.FC<TicketDetailProps> = ({ ticket, currentUser,
         <div className="bg-white p-5 rounded-xl shadow border border-slate-200">
             <div className="flex justify-between items-center mb-4">
                 <h3 className="font-bold text-slate-800">Linked Asset</h3>
-                {currentUser.role === 'AGENT' && ticket.status !== TicketStatus.CLOSED && (
+                {hasPermission(AppPermission.MANAGE_TICKETS) && ticket.status !== TicketStatus.CLOSED && (
                     <button onClick={() => setIsLinking(!isLinking)} className="text-xs text-indigo-600 font-medium hover:text-indigo-800">
                         {linkedAsset ? 'Change' : 'Link'}
                     </button>
@@ -578,7 +609,7 @@ export const TicketDetail: React.FC<TicketDetailProps> = ({ ticket, currentUser,
         </div>
 
         {/* AI Tools Panel (Agent Only) */}
-        {currentUser.role === 'AGENT' && ticket.status !== TicketStatus.CLOSED && (
+        {hasPermission(AppPermission.MANAGE_TICKETS) && ticket.status !== TicketStatus.CLOSED && (
             <div className="bg-white p-5 rounded-xl shadow border border-slate-200 flex-1 overflow-y-auto">
                 <div className="flex items-center space-x-2 mb-4">
                     <svg className="w-5 h-5 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>

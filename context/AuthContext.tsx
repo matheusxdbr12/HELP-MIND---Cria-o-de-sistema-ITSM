@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { User, UserRole } from '../types';
+import { User, UserRole, AppPermission, ROLE_PERMISSIONS } from '../types';
 import { findUserByEmail, registerUser, USERS } from '../services/mockStore';
 
 interface AuthContextType {
@@ -9,6 +9,7 @@ interface AuthContextType {
   login: (email: string, pass: string) => Promise<void>;
   register: (email: string, pass: string, name: string, deptId: string, role: UserRole) => Promise<void>;
   logout: () => void;
+  hasPermission: (permission: AppPermission) => boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -77,8 +78,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser(null);
   };
 
+  const hasPermission = (permission: AppPermission): boolean => {
+    if (!user) return false;
+    const permissions = ROLE_PERMISSIONS[user.role];
+    return permissions ? permissions.includes(permission) : false;
+  };
+
   return (
-    <AuthContext.Provider value={{ user, isAuthenticated: !!user, isLoading, login, register, logout }}>
+    <AuthContext.Provider value={{ user, isAuthenticated: !!user, isLoading, login, register, logout, hasPermission }}>
       {children}
     </AuthContext.Provider>
   );

@@ -90,7 +90,12 @@ export const TicketForm: React.FC<TicketFormProps> = ({ onTicketCreated, current
       aiAnalysis: {
         confidence: analysis?.confidence || 0,
         riskAssessment: riskAssessment
-      }
+      },
+      // SLA fields initialized with default values; calculated in store
+      slaTarget: 0,
+      slaStatus: 'ON_TRACK',
+      slaTier: 'Standard',
+      demandFactorApplied: 1.0
     };
     newTicket.messages[0].ticketId = newTicket.id;
     
