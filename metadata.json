@@ -1,0 +1,5 @@
+{
+  "name": "HelpMind",
+  "description": "An Intelligent Ticketing System integrating Generative AI for automated classification, sentiment analysis, and agent assistance.",
+  "requestFramePermissions": []
+}
